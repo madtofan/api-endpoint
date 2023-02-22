@@ -1,26 +1,14 @@
+use common::errors::{ServiceError, ServiceResult};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use mockall::automock;
 use serde::{Deserialize, Serialize};
-use sqlx::types::time::OffsetDateTime;
 use std::ops::Add;
 use std::{
     sync::Arc,
     time::{Duration, SystemTime},
 };
+use time::OffsetDateTime;
 
-use crate::{
-    data::config::AppConfig,
-    domain::errors::{ServiceError, ServiceResult},
-};
-
-#[automock]
-pub trait TokenServiceTrait {
-    fn new_token(&self, user_id: i64, email: &str) -> ServiceResult<String>;
-
-    fn get_user_id_from_token(&self, token: String) -> ServiceResult<i64>;
-}
-
-pub type DynTokenServiceTrait = Arc<dyn TokenServiceTrait + Send + Sync>;
+use super::config::AppConfig;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -29,6 +17,7 @@ struct Claims {
     exp: usize,
 }
 
+#[derive(Clone)]
 pub struct JwtService {
     config: Arc<AppConfig>,
 }
@@ -37,10 +26,8 @@ impl JwtService {
     pub fn new(config: Arc<AppConfig>) -> Self {
         Self { config }
     }
-}
 
-impl TokenServiceTrait for JwtService {
-    fn new_token(&self, user_id: i64, email: &str) -> ServiceResult<String> {
+    pub fn create_token(&self, user_id: i64, email: &str) -> ServiceResult<String> {
         let from_now = Duration::from_secs(3600);
         let expired_future_time = SystemTime::now().add(from_now);
         let exp = OffsetDateTime::from(expired_future_time);
@@ -61,13 +48,13 @@ impl TokenServiceTrait for JwtService {
         Ok(token)
     }
 
-    fn get_user_id_from_token(&self, token: String) -> ServiceResult<i64> {
+    pub fn get_user_id_from_token(&self, token: &str) -> ServiceResult<i64> {
         let decoded_token = decode::<Claims>(
-            token.as_str(),
+            token,
             &DecodingKey::from_secret(self.config.token_secret.as_bytes()),
             &Validation::new(Algorithm::HS256),
         )
-        .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
+        .map_err(|_| ServiceError::Unauthorized)?;
 
         Ok(decoded_token.claims.user_id)
     }

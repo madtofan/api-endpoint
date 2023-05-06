@@ -153,7 +153,7 @@ impl UserRouter {
             .map_err(|_| ServiceError::InternalServerError)?
             .into_inner();
 
-        info!("Token created, returning response!");
+        info!("Returning response!");
         Ok(Json(UserEndpointResponse::from_user_response(user, None)))
     }
 
@@ -182,7 +182,7 @@ impl UserRouter {
             .map_err(|_| ServiceError::InternalServerError)?
             .into_inner();
 
-        info!("Token created, returning response!");
+        info!("Returning response!");
         Ok(Json(UserEndpointResponse::from_user_response(user, None)))
     }
 }

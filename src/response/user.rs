@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::user::UserResponse;
+use crate::{user::UserResponse, utilities::token::Tokens};
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct UserEndpointResponse {
@@ -10,11 +10,11 @@ pub struct UserEndpointResponse {
     pub email: String,
     pub bio: Option<String>,
     pub image: Option<String>,
-    pub token: String,
+    pub token: Option<Tokens>,
 }
 
 impl UserEndpointResponse {
-    pub fn from_user_response(user_response: UserResponse, token: String) -> Self {
+    pub fn from_user_response(user_response: UserResponse, token: Option<Tokens>) -> Self {
         Self {
             id: user_response.id,
             username: user_response.username,

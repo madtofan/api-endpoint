@@ -11,10 +11,22 @@ use time::OffsetDateTime;
 use super::config::AppConfig;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
+struct BearerClaims {
     sub: String,
     user_id: i64,
     exp: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RefreshClaims {
+    user_id: i64,
+    exp: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct Tokens {
+    pub bearer: String,
+    pub refresh: String,
 }
 
 #[derive(Clone)]
@@ -27,31 +39,43 @@ impl JwtService {
         Self { config }
     }
 
-    pub fn create_token(&self, user_id: i64, email: &str) -> ServiceResult<String> {
+    pub fn create_token(&self, user_id: i64, email: &str) -> ServiceResult<Tokens> {
         let from_now = Duration::from_secs(3600);
         let expired_future_time = SystemTime::now().add(from_now);
         let exp = OffsetDateTime::from(expired_future_time);
 
-        let claims = Claims {
+        let bearer_claims = BearerClaims {
             sub: String::from(email),
             exp: exp.unix_timestamp() as usize,
             user_id,
         };
 
-        let token = encode(
+        let bearer = encode(
             &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(self.config.token_secret.as_bytes()),
+            &bearer_claims,
+            &EncodingKey::from_secret(self.config.bearer_secret.as_bytes()),
         )
         .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
 
-        Ok(token)
+        let refresh_claims = RefreshClaims {
+            exp: exp.unix_timestamp() as usize,
+            user_id,
+        };
+
+        let refresh = encode(
+            &Header::default(),
+            &refresh_claims,
+            &EncodingKey::from_secret(self.config.refresh_secret.as_bytes()),
+        )
+        .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
+
+        Ok(Tokens { bearer, refresh })
     }
 
     pub fn get_user_id_from_token(&self, token: &str) -> ServiceResult<i64> {
-        let decoded_token = decode::<Claims>(
+        let decoded_token = decode::<BearerClaims>(
             token,
-            &DecodingKey::from_secret(self.config.token_secret.as_bytes()),
+            &DecodingKey::from_secret(self.config.bearer_secret.as_bytes()),
             &Validation::new(Algorithm::HS256),
         )
         .map_err(|_| ServiceError::Unauthorized)?;

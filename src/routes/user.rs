@@ -14,8 +14,8 @@ use crate::{
     },
     response::user::UserEndpointResponse,
     user::{
-        update_request::UpdateFields, GetUserRequest, LoginRequest, RefreshRequest,
-        RegisterRequest, UpdateRequest,
+        update_request::UpdateFields, GetUserRequest, LoginRequest, RegisterRequest, UpdateRequest,
+        UpdateTokenRequest,
     },
     utilities::{
         service_register::ServiceRegister,
@@ -113,8 +113,8 @@ impl UserRouter {
         info!("Refresh token Endpoint, creating service request...");
         let id = token_service.get_user_id_from_token(authorization.token())?;
         request.validate()?;
-        let refresh_request: RefreshRequest = if let Some(token) = request.token {
-            Ok(RefreshRequest { id, token })
+        let refresh_request: UpdateTokenRequest = if let Some(token) = request.token {
+            Ok(UpdateTokenRequest { id, token })
         } else {
             Err(ServiceError::BadRequest(
                 "Missing parameters in the request".to_string(),
@@ -123,7 +123,7 @@ impl UserRouter {
 
         info!("Created Service Request, obtaining response from User service...");
         let user = user_service
-            .refresh(refresh_request)
+            .refresh_token(refresh_request)
             .await
             .map_err(|_| ServiceError::InternalServerError)?
             .into_inner();

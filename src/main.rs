@@ -20,6 +20,12 @@ mod utilities;
 pub mod user {
     tonic::include_proto!("user");
 }
+pub mod email {
+    tonic::include_proto!("email");
+}
+pub mod templating {
+    tonic::include_proto!("templating");
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

@@ -19,6 +19,12 @@ pub struct LoginEndpointRequest {
     pub password: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Validate)]
+pub struct RefreshtokenEndpointRequest {
+    #[validate(required, length(min = 1))]
+    pub token: Option<String>,
+}
+
 #[derive(Deserialize, Serialize, Debug, Default, Validate)]
 pub struct UpdateEndpointRequest {
     #[validate(email(message = "Email is invalid"))]

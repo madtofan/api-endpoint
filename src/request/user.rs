@@ -7,7 +7,7 @@ pub struct RegisterEndpointRequest {
     pub username: Option<String>,
     #[validate(required, length(min = 1), email(message = "Email is invalid"))]
     pub email: Option<String>,
-    #[validate(required, length(min = 8))]
+    #[validate(required, length(min = 8, max = 30))]
     pub password: Option<String>,
 }
 
@@ -15,7 +15,7 @@ pub struct RegisterEndpointRequest {
 pub struct LoginEndpointRequest {
     #[validate(required, length(min = 1), email(message = "Email is invalid"))]
     pub email: Option<String>,
-    #[validate(required, length(min = 1))]
+    #[validate(required, length(min = 8, max = 30))]
     pub password: Option<String>,
 }
 

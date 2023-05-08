@@ -1,3 +1,4 @@
+use crate::routes::templating::TemplatingRouter;
 use crate::routes::user::UserRouter;
 use anyhow::Ok;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
@@ -47,7 +48,14 @@ async fn main() -> anyhow::Result<()> {
 
     info!("migrations successfully ran, initializing axum server...");
     let app = Router::new()
-        .nest("/api", UserRouter::new_router(service_register.clone()))
+        .nest(
+            "/api/user",
+            UserRouter::new_router(service_register.clone()),
+        )
+        .nest(
+            "/api/templating",
+            TemplatingRouter::new_router(service_register.clone()),
+        )
         .layer(
             CorsLayer::new()
                 // .allow_origin(any())

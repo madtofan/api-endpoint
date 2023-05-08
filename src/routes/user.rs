@@ -14,8 +14,8 @@ use crate::{
     },
     response::user::UserEndpointResponse,
     user::{
-        update_request::UpdateFields, GetUserRequest, LoginRequest, RegisterRequest, UpdateRequest,
-        UpdateTokenRequest,
+        update_request::UpdateFields, GetUserRequest, LoginRequest, RefreshTokenRequest,
+        RegisterRequest, UpdateRequest,
     },
     utilities::{
         service_register::ServiceRegister,
@@ -30,13 +30,13 @@ impl UserRouter {
     pub fn new_router(service_register: ServiceRegister) -> Router {
         Router::new()
             .route(
-                "/user",
+                "/",
                 get(UserRouter::get_current_user_endpoint)
                     .post(UserRouter::register_user_endpoint)
                     .put(UserRouter::update_user_endpoint),
             )
-            .route("/user/login", post(UserRouter::login_user_endpoint))
-            .route("/user/refresh", post(UserRouter::refresh_token_endpoint))
+            .route("/login", post(UserRouter::login_user_endpoint))
+            .route("/refresh", post(UserRouter::refresh_token_endpoint))
             .with_state(service_register)
     }
 
@@ -113,8 +113,8 @@ impl UserRouter {
         info!("Refresh token Endpoint, creating service request...");
         let id = token_service.get_user_id_from_token(authorization.token())?;
         request.validate()?;
-        let refresh_request: UpdateTokenRequest = if let Some(token) = request.token {
-            Ok(UpdateTokenRequest { id, token })
+        let refresh_request: RefreshTokenRequest = if let Some(token) = request.token {
+            Ok(RefreshTokenRequest { id, token })
         } else {
             Err(ServiceError::BadRequest(
                 "Missing parameters in the request".to_string(),

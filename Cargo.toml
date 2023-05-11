@@ -26,6 +26,7 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 validator = { version = "0.16.0", features = ["derive"] }
 wasm-bindgen = "0.2.83"
 async-trait = "0.1.64"
+urlencoding = "2.1.2"
 
 [build-dependencies]
 tonic-build = "0.8.4"

@@ -9,6 +9,8 @@ pub struct AppConfig {
     #[arg(long, env)]
     pub refresh_secret: String,
     #[arg(long, env)]
+    pub verify_registration_secret: String,
+    #[arg(long, env)]
     pub service_url: String,
     #[arg(long, env)]
     pub service_port: u32,

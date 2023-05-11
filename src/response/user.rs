@@ -25,3 +25,10 @@ impl UserEndpointResponse {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct RegisterUserEndpointResponse {
+    pub username: String,
+    pub email: String,
+    pub verify_token: String,
+}

@@ -23,6 +23,12 @@ struct RefreshClaims {
     exp: usize,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct VerifyRegistrationClaim {
+    user_id: i64,
+    exp: usize,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Tokens {
     pub bearer: String,
@@ -40,7 +46,7 @@ impl JwtService {
     }
 
     pub fn create_token(&self, user_id: i64, email: &str) -> ServiceResult<Tokens> {
-        let from_now = Duration::from_secs(3600);
+        let from_now = Duration::from_secs(900);
         let expired_future_time = SystemTime::now().add(from_now);
         let exp = OffsetDateTime::from(expired_future_time);
 
@@ -72,13 +78,54 @@ impl JwtService {
         Ok(Tokens { bearer, refresh })
     }
 
-    pub fn get_user_id_from_token(&self, token: &str) -> ServiceResult<i64> {
+    pub fn get_user_id_from_bearer_token(&self, token: &str) -> ServiceResult<i64> {
         let decoded_token = decode::<BearerClaims>(
             token,
             &DecodingKey::from_secret(self.config.bearer_secret.as_bytes()),
             &Validation::new(Algorithm::HS256),
         )
         .map_err(|_| ServiceError::Unauthorized)?;
+
+        let now = OffsetDateTime::from(SystemTime::now()).unix_timestamp() as usize;
+        if decoded_token.claims.exp < now {
+            return Err(ServiceError::Unauthorized);
+        }
+
+        Ok(decoded_token.claims.user_id)
+    }
+
+    pub fn create_verify_registration_token(&self, user_id: i64) -> ServiceResult<String> {
+        let from_now = Duration::from_secs(300);
+        let expired_future_time = SystemTime::now().add(from_now);
+        let exp = OffsetDateTime::from(expired_future_time);
+
+        let bearer_claims = VerifyRegistrationClaim {
+            exp: exp.unix_timestamp() as usize,
+            user_id,
+        };
+
+        let bearer = encode(
+            &Header::default(),
+            &bearer_claims,
+            &EncodingKey::from_secret(self.config.verify_registration_secret.as_bytes()),
+        )
+        .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
+
+        Ok(bearer)
+    }
+
+    pub fn extract_verify_registration_token(&self, token: &str) -> ServiceResult<i64> {
+        let decoded_token = decode::<VerifyRegistrationClaim>(
+            token,
+            &DecodingKey::from_secret(self.config.verify_registration_secret.as_bytes()),
+            &Validation::new(Algorithm::HS256),
+        )
+        .map_err(|_| ServiceError::Unauthorized)?;
+
+        let now = OffsetDateTime::from(SystemTime::now()).unix_timestamp() as usize;
+        if decoded_token.claims.exp < now {
+            return Err(ServiceError::Unauthorized);
+        }
 
         Ok(decoded_token.claims.user_id)
     }

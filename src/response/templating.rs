@@ -2,24 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     request::templating::TemplateInputsEndpoint,
-    templating::{list_template_response::Templates, ListTemplateResponse, TemplatingResponse},
+    templating::{ListTemplateResponse, TemplateResponse},
 };
 
 #[derive(Serialize, Deserialize, Default, Debug)]
-pub struct TemplatingEndpointResponse {
-    pub message: String,
-}
-
-impl TemplatingEndpointResponse {
-    pub fn from_templating_response(templating_response: TemplatingResponse) -> Self {
-        Self {
-            message: templating_response.message,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct TemplatesEndpointResponse {
+pub struct TemplateEndpointResponse {
     pub name: String,
     pub description: String,
     pub template_inputs: Vec<TemplateInputsEndpoint>,
@@ -27,11 +14,11 @@ pub struct TemplatesEndpointResponse {
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ListTemplateEndpointResponse {
-    pub templates: Vec<TemplatesEndpointResponse>,
+    pub templates: Vec<TemplateEndpointResponse>,
 }
 
-impl From<Templates> for TemplatesEndpointResponse {
-    fn from(templates: Templates) -> Self {
+impl From<TemplateResponse> for TemplateEndpointResponse {
+    fn from(templates: TemplateResponse) -> Self {
         Self {
             name: templates.name,
             description: templates.description,
@@ -54,7 +41,7 @@ impl ListTemplateEndpointResponse {
                 .templates
                 .into_iter()
                 .map(|template| template.into())
-                .collect::<Vec<TemplatesEndpointResponse>>(),
+                .collect::<Vec<TemplateEndpointResponse>>(),
         }
     }
 }

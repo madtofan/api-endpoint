@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::{
     request::templating::{AddTemplateEndpointRequest, RemoveTemplateEndpointRequest},
-    response::templating::{ListTemplateEndpointResponse, TemplatingEndpointResponse},
+    response::templating::{ListTemplateEndpointResponse, TemplateEndpointResponse},
     templating::{AddTemplateRequest, ListTemplateRequest, RemoveTemplateRequest, TemplateInput},
     utilities::{
         service_register::ServiceRegister,
@@ -57,7 +57,7 @@ impl TemplatingRouter {
         State(token_service): State<StateTokenService>,
         authorization: TypedHeader<Authorization<Bearer>>,
         Json(request): Json<AddTemplateEndpointRequest>,
-    ) -> ServiceResult<Json<TemplatingEndpointResponse>> {
+    ) -> ServiceResult<Json<TemplateEndpointResponse>> {
         info!("Add Template Endpoint");
 
         token_service.get_user_id_from_bearer_token(authorization.token())?;
@@ -84,15 +84,14 @@ impl TemplatingRouter {
                 ))
             }?;
 
-        let response = templating_service
+        let response: TemplateEndpointResponse = templating_service
             .add_template(add_template_request)
             .await
             .map_err(|_| ServiceError::InternalServerError)?
-            .into_inner();
+            .into_inner()
+            .into();
 
-        Ok(Json(TemplatingEndpointResponse::from_templating_response(
-            response,
-        )))
+        Ok(Json(response))
     }
 
     pub async fn remove_template_endpoint(
@@ -100,7 +99,7 @@ impl TemplatingRouter {
         State(token_service): State<StateTokenService>,
         authorization: TypedHeader<Authorization<Bearer>>,
         Json(request): Json<RemoveTemplateEndpointRequest>,
-    ) -> ServiceResult<Json<TemplatingEndpointResponse>> {
+    ) -> ServiceResult<Json<TemplateEndpointResponse>> {
         info!("Remove Template Endpoint");
 
         token_service.get_user_id_from_bearer_token(authorization.token())?;
@@ -113,14 +112,13 @@ impl TemplatingRouter {
             ))
         }?;
 
-        let response = templating_service
+        let response: TemplateEndpointResponse = templating_service
             .remove_template(remove_template_request)
             .await
             .map_err(|_| ServiceError::InternalServerError)?
-            .into_inner();
+            .into_inner()
+            .into();
 
-        Ok(Json(TemplatingEndpointResponse::from_templating_response(
-            response,
-        )))
+        Ok(Json(response))
     }
 }

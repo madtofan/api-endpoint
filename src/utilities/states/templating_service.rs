@@ -1,11 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use axum::extract::FromRef;
+use madtofan_microservice_common::templating::templating_client::TemplatingClient;
 use tonic::transport::Channel;
 
-use crate::{
-    templating::templating_client::TemplatingClient, utilities::service_register::ServiceRegister,
-};
+use crate::utilities::service_register::ServiceRegister;
 
 #[derive(Clone)]
 pub struct StateTemplatingService(pub TemplatingClient<Channel>);

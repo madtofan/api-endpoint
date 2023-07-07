@@ -4,13 +4,15 @@ use axum::{
     routing::get,
     Json, Router, TypedHeader,
 };
-use common::errors::{ServiceError, ServiceResult};
+use madtofan_microservice_common::{
+    errors::{ServiceError, ServiceResult},
+    templating::{AddTemplateRequest, ListTemplateRequest, RemoveTemplateRequest, TemplateInput},
+};
 use validator::Validate;
 
 use crate::{
     request::templating::{AddTemplateEndpointRequest, RemoveTemplateEndpointRequest},
     response::templating::{ListTemplateEndpointResponse, TemplateEndpointResponse},
-    templating::{AddTemplateRequest, ListTemplateRequest, RemoveTemplateRequest, TemplateInput},
     utilities::{
         service_register::ServiceRegister,
         states::{templating_service::StateTemplatingService, token_service::StateTokenService},

@@ -2,12 +2,12 @@ use crate::routes::templating::TemplatingRouter;
 use crate::routes::user::UserRouter;
 use anyhow::Ok;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
-use axum::http::{HeaderValue, Method};
+use axum::http::Method;
 use axum::Router;
 use clap::Parser;
 use dotenv::dotenv;
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -18,19 +18,10 @@ mod request;
 mod response;
 mod routes;
 mod utilities;
-pub mod user {
-    tonic::include_proto!("user");
-}
-pub mod email {
-    tonic::include_proto!("email");
-}
-pub mod templating {
-    tonic::include_proto!("templating");
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv().expect("Failed to read .env file, please add a .env file to the project root");
+    dotenv().ok();
 
     let config = Arc::new(AppConfig::parse());
 
@@ -42,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Environment loaded and configuration parsed, initializing connection to services...");
     let app_host = &config.service_url;
     let app_port = &config.service_port;
-    let cors_origin = config.cors_origin.as_str();
+    // let cors_origin = config.cors_origin.as_str();
     let app_url = format!("{}:{}", app_host, app_port);
     let service_register = ServiceRegister::new(config.clone()).await?;
 
@@ -58,8 +49,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .layer(
             CorsLayer::new()
-                // .allow_origin(any())
-                .allow_origin(cors_origin.parse::<HeaderValue>().unwrap())
+                .allow_origin(Any)
+                // .allow_origin(cors_origin.parse::<HeaderValue>().unwrap())
                 .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
                 .allow_headers(vec![CONTENT_TYPE, AUTHORIZATION]),
         );

@@ -1,9 +1,7 @@
+use madtofan_microservice_common::templating::{ListTemplateResponse, TemplateResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    request::templating::TemplateInputsEndpoint,
-    templating::{ListTemplateResponse, TemplateResponse},
-};
+use crate::request::templating::TemplateInputsEndpoint;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct TemplateEndpointResponse {

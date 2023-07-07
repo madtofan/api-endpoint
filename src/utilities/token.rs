@@ -1,5 +1,5 @@
-use common::errors::{ServiceError, ServiceResult};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use madtofan_microservice_common::errors::{ServiceError, ServiceResult};
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use std::{

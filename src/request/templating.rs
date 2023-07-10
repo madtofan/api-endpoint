@@ -1,7 +1,6 @@
+use madtofan_microservice_common::templating::TemplateInput;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
-
-use crate::templating::TemplateInput;
 
 #[derive(Clone, Serialize, Deserialize, Debug, Validate, Default)]
 pub struct AddTemplateEndpointRequest {

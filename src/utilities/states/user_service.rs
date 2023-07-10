@@ -1,9 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use axum::extract::FromRef;
+use madtofan_microservice_common::user::user_client::UserClient;
 use tonic::transport::Channel;
 
-use crate::{user::user_client::UserClient, utilities::service_register::ServiceRegister};
+use crate::utilities::service_register::ServiceRegister;
 
 #[derive(Clone)]
 pub struct StateUserService(pub UserClient<Channel>);

@@ -1,9 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use axum::extract::FromRef;
+use madtofan_microservice_common::email::email_client::EmailClient;
 use tonic::transport::Channel;
 
-use crate::{email::email_client::EmailClient, utilities::service_register::ServiceRegister};
+use crate::utilities::service_register::ServiceRegister;
 
 #[derive(Clone)]
 pub struct StateEmailService(pub EmailClient<Channel>);

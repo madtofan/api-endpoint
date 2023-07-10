@@ -1,6 +1,7 @@
+use madtofan_microservice_common::user::UserResponse;
 use serde::{Deserialize, Serialize};
 
-use crate::{user::UserResponse, utilities::token::Tokens};
+use crate::utilities::token::Tokens;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct UserEndpointResponse {

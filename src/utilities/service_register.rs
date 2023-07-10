@@ -1,7 +1,9 @@
-use crate::email::email_client::EmailClient;
-use crate::templating::templating_client::TemplatingClient;
-use crate::user::user_client::UserClient;
-use common::errors::{ServiceError, ServiceResult};
+use madtofan_microservice_common::{
+    email::email_client::EmailClient,
+    errors::{ServiceError, ServiceResult},
+    templating::templating_client::TemplatingClient,
+    user::user_client::UserClient,
+};
 use std::sync::Arc;
 use tracing::info;
 
@@ -32,11 +34,15 @@ impl ServiceRegister {
         let token_service = JwtService::new(config);
 
         info!("utility services initialized, building feature services...");
+        info!("user addr: {:#?}", user_service_address);
+        info!("email addr: {:#?}", email_service_address);
+        info!("templating addr: {:#?}", templating_service_address);
         let user_service = UserClient::connect(user_service_address)
             .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(String::from(
-                    "Unable to initialize user microservice",
+            .map_err(|err| {
+                ServiceError::InternalServerErrorWithContext(format!(
+                    "Unable to initialize user microservice: {:#?}",
+                    err.to_string(),
                 ))
             })?;
         let email_service = EmailClient::connect(email_service_address)

@@ -4,22 +4,24 @@ use axum::{
     routing::{get, post},
     Json, Router, TypedHeader,
 };
-use common::errors::{ServiceError, ServiceResult};
-use urlencoding::{decode, encode};
-use validator::Validate;
-
-use crate::{
+use madtofan_microservice_common::{
     email::SendEmailRequest,
-    request::user::{
-        LoginEndpointRequest, RefreshtokenEndpointRequest, RegisterEndpointRequest,
-        UpdateEndpointRequest,
-    },
-    response::user::{RegisterUserEndpointResponse, UserEndpointResponse},
+    errors::{ServiceError, ServiceResult},
     templating::{compose_request::InputValue, ComposeRequest},
     user::{
         update_request::UpdateFields, GetUserRequest, LoginRequest, RefreshTokenRequest,
         RegisterRequest, UpdateRequest, VerifyRegistrationRequest,
     },
+};
+use urlencoding::{decode, encode};
+use validator::Validate;
+
+use crate::{
+    request::user::{
+        LoginEndpointRequest, RefreshtokenEndpointRequest, RegisterEndpointRequest,
+        UpdateEndpointRequest,
+    },
+    response::user::{RegisterUserEndpointResponse, UserEndpointResponse},
     utilities::{
         service_register::ServiceRegister,
         states::{

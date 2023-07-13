@@ -1,10 +1,9 @@
 use madtofan_microservice_common::{
-    email::email_client::EmailClient,
-    errors::{ServiceError, ServiceResult},
-    templating::templating_client::TemplatingClient,
-    user::user_client::UserClient,
+    email::email_client::EmailClient, errors::ServiceResult,
+    templating::templating_client::TemplatingClient, user::user_client::UserClient,
 };
 use std::sync::Arc;
+use tonic::transport::Endpoint;
 use tracing::info;
 
 use super::config::AppConfig;
@@ -25,40 +24,25 @@ pub struct ServiceRegister {
 impl ServiceRegister {
     pub async fn new(config: Arc<AppConfig>) -> ServiceResult<Self> {
         info!("parsing config for addresses...");
-        let user_service_address = format!("{}:{}", &config.user_host, &config.user_port);
-        let email_service_address = format!("{}:{}", &config.email_host, &config.email_port);
-        let templating_service_address =
+        let user_service_address_string = format!("{}:{}", &config.user_host, &config.user_port);
+        let user_service_address = Box::leak(user_service_address_string.into_boxed_str());
+        let email_service_address_string = format!("{}:{}", &config.email_host, &config.email_port);
+        let email_service_address = Box::leak(email_service_address_string.into_boxed_str());
+        let templating_service_address_string =
             format!("{}:{}", &config.templating_host, &config.templating_port);
+        let templating_service_address =
+            Box::leak(templating_service_address_string.into_boxed_str());
 
         info!("initializing utility services...");
         let token_service = JwtService::new(config);
 
         info!("utility services initialized, building feature services...");
-        info!("user addr: {:#?}", user_service_address);
-        info!("email addr: {:#?}", email_service_address);
-        info!("templating addr: {:#?}", templating_service_address);
-        let user_service = UserClient::connect(user_service_address)
-            .await
-            .map_err(|err| {
-                ServiceError::InternalServerErrorWithContext(format!(
-                    "Unable to initialize user microservice: {:#?}",
-                    err.to_string(),
-                ))
-            })?;
-        let email_service = EmailClient::connect(email_service_address)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(String::from(
-                    "Unable to initialize email microservice",
-                ))
-            })?;
-        let templating_service = TemplatingClient::connect(templating_service_address)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(String::from(
-                    "Unable to initialize templating microservice",
-                ))
-            })?;
+        let user_endpoint = Endpoint::from_static(user_service_address).connect_lazy();
+        let user_service = UserClient::new(user_endpoint);
+        let email_endpoint = Endpoint::from_static(email_service_address).connect_lazy();
+        let email_service = EmailClient::new(email_endpoint);
+        let templating_endpoint = Endpoint::from_static(templating_service_address).connect_lazy();
+        let templating_service = TemplatingClient::new(templating_endpoint);
 
         info!("features services successfully initialized!");
         Ok(ServiceRegister {

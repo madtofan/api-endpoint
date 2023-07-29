@@ -9,8 +9,8 @@ use madtofan_microservice_common::{
     errors::{ServiceError, ServiceResult},
     templating::{compose_request::InputValue, ComposeRequest},
     user::{
-        update_request::UpdateFields, GetUserRequest, LoginRequest, RefreshTokenRequest,
-        RegisterRequest, UpdateRequest, VerifyRegistrationRequest,
+        update_request::UpdateFields, GetUserRequest, LoginRequest, RegisterRequest, UpdateRequest,
+        VerifyRegistrationRequest,
     },
 };
 use urlencoding::{decode, encode};
@@ -21,7 +21,7 @@ use crate::{
         LoginEndpointRequest, RefreshtokenEndpointRequest, RegisterEndpointRequest,
         UpdateEndpointRequest,
     },
-    response::user::{RegisterUserEndpointResponse, UserEndpointResponse},
+    response::user::{ObtainTokenResponse, RegisterUserEndpointResponse, UserEndpointResponse},
     utilities::{
         service_register::ServiceRegister,
         states::{
@@ -63,13 +63,17 @@ impl UserRouter {
 
         request.validate()?;
         let register_request: RegisterRequest =
-            if let (Some(username), Some(email), Some(password)) =
-                (request.username, request.email, request.password)
-            {
+            if let (Some(email), Some(password), Some(first_name), Some(last_name)) = (
+                request.email,
+                request.password,
+                request.first_name,
+                request.last_name,
+            ) {
                 Ok(RegisterRequest {
-                    username,
                     email,
                     password,
+                    first_name,
+                    last_name,
                 })
             } else {
                 Err(ServiceError::BadRequest(
@@ -90,8 +94,12 @@ impl UserRouter {
             name: "registration".to_string(),
             input_values: vec![
                 InputValue {
-                    name: "username".to_string(),
-                    value: user.username.clone(),
+                    name: "name".to_string(),
+                    value: format!(
+                        "{:#?} {:#?}",
+                        user.first_name.clone(),
+                        user.last_name.clone()
+                    ),
                 },
                 InputValue {
                     name: "verification_token".to_string(),
@@ -126,7 +134,6 @@ impl UserRouter {
             })?;
 
         Ok(Json(RegisterUserEndpointResponse {
-            username: user.username,
             email: user.email,
             verify_token,
         }))
@@ -161,8 +168,12 @@ impl UserRouter {
         let compose_request: ComposeRequest = ComposeRequest {
             name: "verified".to_string(),
             input_values: vec![InputValue {
-                name: "username".to_string(),
-                value: user.username.clone(),
+                name: "name".to_string(),
+                value: format!(
+                    "{:#?} {:#?}",
+                    user.first_name.clone(),
+                    user.last_name.clone()
+                ),
             }],
         };
 
@@ -191,14 +202,14 @@ impl UserRouter {
                 )
             })?;
 
-        Ok(Json(UserEndpointResponse::from_user_response(user, None)))
+        Ok(Json(UserEndpointResponse::from_user_response(user)))
     }
 
     pub async fn login_user_endpoint(
         State(mut user_service): State<StateUserService>,
         State(token_service): State<StateTokenService>,
         Json(request): Json<LoginEndpointRequest>,
-    ) -> ServiceResult<Json<UserEndpointResponse>> {
+    ) -> ServiceResult<Json<ObtainTokenResponse>> {
         info!("Login User Endpoint, creating service request...");
         request.validate()?;
         let login_request: LoginRequest =
@@ -217,48 +228,25 @@ impl UserRouter {
             .map_err(|_| ServiceError::InternalServerError)?
             .into_inner();
 
-        info!("Obtained response from service, creating token...");
-        let token = token_service.create_token(user.id, &user.email)?;
+        info!("Obtained response from service, creating bearer token...");
+        let tokens = token_service.create_token(user.id, &user.email)?;
 
         info!("Token created, returning response!");
-        Ok(Json(UserEndpointResponse::from_user_response(
-            user,
-            Some(token),
-        )))
+        Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
     }
 
     pub async fn refresh_token_endpoint(
-        State(mut user_service): State<StateUserService>,
         State(token_service): State<StateTokenService>,
         authorization: TypedHeader<Authorization<Bearer>>,
         Json(request): Json<RefreshtokenEndpointRequest>,
-    ) -> ServiceResult<Json<UserEndpointResponse>> {
+    ) -> ServiceResult<Json<ObtainTokenResponse>> {
         info!("Refresh token Endpoint, creating service request...");
-        let id = token_service.get_user_id_from_bearer_token(authorization.token())?;
         request.validate()?;
-        let refresh_request: RefreshTokenRequest = if let Some(token) = request.token {
-            Ok(RefreshTokenRequest { id, token })
-        } else {
-            Err(ServiceError::BadRequest(
-                "Missing parameters in the request".to_string(),
-            ))
-        }?;
-
-        info!("Created Service Request, obtaining response from User service...");
-        let user = user_service
-            .refresh_token(refresh_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
-            .into_inner();
-
-        info!("Obtained response from service, creating token...");
-        let token = token_service.create_token(user.id, &user.email)?;
+        let tokens =
+            token_service.refresh_tokens(&request.token.unwrap(), authorization.token())?;
 
         info!("Token created, returning response!");
-        Ok(Json(UserEndpointResponse::from_user_response(
-            user,
-            Some(token),
-        )))
+        Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
     }
 
     pub async fn get_current_user_endpoint(
@@ -267,17 +255,19 @@ impl UserRouter {
         authorization: TypedHeader<Authorization<Bearer>>,
     ) -> ServiceResult<Json<UserEndpointResponse>> {
         info!("Get User Endpoint, obtaining authorization...");
-        let id = token_service.get_user_id_from_bearer_token(authorization.token())?;
+        let bearer_claims = token_service.decode_bearer_token(authorization.token())?;
 
         info!("Obtained authorization, obtaining response from User service...");
         let user = user_service
-            .get(GetUserRequest { id })
+            .get(GetUserRequest {
+                id: bearer_claims.user_id,
+            })
             .await
             .map_err(|_| ServiceError::InternalServerError)?
             .into_inner();
 
         info!("Returning response!");
-        Ok(Json(UserEndpointResponse::from_user_response(user, None)))
+        Ok(Json(UserEndpointResponse::from_user_response(user)))
     }
 
     pub async fn update_user_endpoint(
@@ -287,16 +277,16 @@ impl UserRouter {
         Json(request): Json<UpdateEndpointRequest>,
     ) -> ServiceResult<Json<UserEndpointResponse>> {
         info!("Update User Endpoint, obtaining authorization...");
-        let id = token_service.get_user_id_from_bearer_token(authorization.token())?;
+        let bearer_claims = token_service.decode_bearer_token(authorization.token())?;
 
         info!("Obtained authorization, obtaining response from User service...");
         let user = user_service
             .update(UpdateRequest {
-                id,
+                id: bearer_claims.user_id,
                 fields: Some(UpdateFields {
-                    email: request.email,
-                    username: request.username,
                     password: request.password,
+                    first_name: request.first_name,
+                    last_name: request.last_name,
                     bio: request.bio,
                     image: request.image,
                 }),
@@ -306,6 +296,6 @@ impl UserRouter {
             .into_inner();
 
         info!("Returning response!");
-        Ok(Json(UserEndpointResponse::from_user_response(user, None)))
+        Ok(Json(UserEndpointResponse::from_user_response(user)))
     }
 }

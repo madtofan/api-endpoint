@@ -41,7 +41,7 @@ impl TemplatingRouter {
     ) -> ServiceResult<Json<ListTemplateEndpointResponse>> {
         info!("List Templates Endpoint");
 
-        token_service.get_user_id_from_bearer_token(authorization.token())?;
+        token_service.decode_bearer_token(authorization.token())?;
         let list_templates_request: ListTemplateRequest = ListTemplateRequest {};
         let response = templating_service
             .list_templates(list_templates_request)
@@ -62,7 +62,7 @@ impl TemplatingRouter {
     ) -> ServiceResult<Json<TemplateEndpointResponse>> {
         info!("Add Template Endpoint");
 
-        token_service.get_user_id_from_bearer_token(authorization.token())?;
+        token_service.decode_bearer_token(authorization.token())?;
         request.validate()?;
         let add_template_request: AddTemplateRequest =
             if let (Some(name), Some(description), Some(body), Some(template_inputs)) = (
@@ -104,7 +104,7 @@ impl TemplatingRouter {
     ) -> ServiceResult<Json<TemplateEndpointResponse>> {
         info!("Remove Template Endpoint");
 
-        token_service.get_user_id_from_bearer_token(authorization.token())?;
+        token_service.decode_bearer_token(authorization.token())?;
         request.validate()?;
         let remove_template_request: RemoveTemplateRequest = if let Some(name) = request.name {
             Ok(RemoveTemplateRequest { name })

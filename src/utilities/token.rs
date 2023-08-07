@@ -125,7 +125,7 @@ impl JwtService {
     }
 
     pub fn create_verify_registration_token(&self, user_id: i64) -> ServiceResult<String> {
-        let from_now = Duration::from_secs(300);
+        let from_now = Duration::from_secs(86400);
         let expired_future_time = SystemTime::now().add(from_now);
         let exp = OffsetDateTime::from(expired_future_time);
 

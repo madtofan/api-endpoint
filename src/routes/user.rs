@@ -231,7 +231,16 @@ impl UserRouter {
         info!("Obtained response from service, creating bearer token...");
         let tokens = token_service.create_token(user.id, &user.email)?;
 
-        info!("Token created, returning response!");
+        info!("Token created, updating user token!");
+        user_service
+            .refresh_token(RefreshTokenRequest {
+                id: user.id,
+                token: tokens.clone().refresh,
+            })
+            .await
+            .map_err(|_| ServiceError::InternalServerError)?;
+
+        info!("User token updated, returning response!");
         Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
     }
 
@@ -262,7 +271,7 @@ impl UserRouter {
                 info!("Validated token, creating token...");
                 let tokens = token_service.create_token(user_id, &email)?;
 
-                info!("Token created, updating user!");
+                info!("Token created, updating user token!");
                 user_service
                     .refresh_token(RefreshTokenRequest {
                         id: claims.user_id,
@@ -271,7 +280,7 @@ impl UserRouter {
                     .await
                     .map_err(|_| ServiceError::InternalServerError)?;
 
-                info!("Token created, returning response!");
+                info!("User token updated, returning response!");
                 Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
             }
             false => Err(ServiceError::Unauthorized),

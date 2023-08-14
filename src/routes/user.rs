@@ -9,8 +9,8 @@ use madtofan_microservice_common::{
     errors::{ServiceError, ServiceResult},
     templating::{compose_request::InputValue, ComposeRequest},
     user::{
-        update_request::UpdateFields, GetUserRequest, LoginRequest, RegisterRequest, UpdateRequest,
-        VerifyRegistrationRequest,
+        update_request::UpdateFields, GetUserRequest, LoginRequest, RefreshTokenRequest,
+        RegisterRequest, UpdateRequest, VerifyRegistrationRequest, VerifyTokenRequest,
     },
 };
 use urlencoding::{decode, encode};
@@ -154,7 +154,7 @@ impl UserRouter {
                 )
             })?
             .into_owned();
-        let user_id = token_service.extract_verify_registration_token(&verification_token)?;
+        let user_id = token_service.decode_verify_registration_token(&verification_token)?;
 
         let verify_registration_request: VerifyRegistrationRequest =
             VerifyRegistrationRequest { id: user_id };
@@ -236,17 +236,46 @@ impl UserRouter {
     }
 
     pub async fn refresh_token_endpoint(
+        State(mut user_service): State<StateUserService>,
         State(token_service): State<StateTokenService>,
-        authorization: TypedHeader<Authorization<Bearer>>,
         Json(request): Json<RefreshtokenEndpointRequest>,
     ) -> ServiceResult<Json<ObtainTokenResponse>> {
         info!("Refresh token Endpoint, creating service request...");
         request.validate()?;
-        let tokens =
-            token_service.refresh_tokens(&request.token.unwrap(), authorization.token())?;
+        let refresh_token = request.token.unwrap();
+        let claims = token_service.decode_refresh_token(&refresh_token.clone())?;
+        let email = claims.user_email;
+        let user_id = claims.user_id;
+        info!("Token decoded, checking if token match user...");
+        let is_valid_token = user_service
+            .verify_token(VerifyTokenRequest {
+                id: claims.user_id,
+                token: refresh_token,
+            })
+            .await
+            .map_err(|_| ServiceError::InternalServerError)?
+            .into_inner()
+            .valid;
 
-        info!("Token created, returning response!");
-        Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
+        match is_valid_token {
+            true => {
+                info!("Validated token, creating token...");
+                let tokens = token_service.create_token(user_id, &email)?;
+
+                info!("Token created, updating user!");
+                user_service
+                    .refresh_token(RefreshTokenRequest {
+                        id: claims.user_id,
+                        token: tokens.clone().refresh,
+                    })
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?;
+
+                info!("Token created, returning response!");
+                Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
+            }
+            false => Err(ServiceError::Unauthorized),
+        }
     }
 
     pub async fn get_current_user_endpoint(

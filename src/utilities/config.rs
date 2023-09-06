@@ -11,6 +11,8 @@ pub struct AppConfig {
     #[arg(long, env)]
     pub verify_registration_secret: String,
     #[arg(long, env)]
+    pub notification_sender_secret: String,
+    #[arg(long, env)]
     pub service_url: String,
     #[arg(long, env)]
     pub service_port: u32,
@@ -28,4 +30,8 @@ pub struct AppConfig {
     pub templating_host: String,
     #[arg(long, env)]
     pub templating_port: u32,
+    #[arg(long, env)]
+    pub notification_host: String,
+    #[arg(long, env)]
+    pub notification_port: u32,
 }

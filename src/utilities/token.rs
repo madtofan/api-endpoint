@@ -30,6 +30,13 @@ struct VerifyRegistrationClaim {
     exp: usize,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NotificationSenderClaim {
+    channel: String,
+    email: String,
+    exp: usize,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Tokens {
     pub bearer: String,
@@ -140,5 +147,49 @@ impl JwtService {
         }
 
         Ok(decoded_token.claims.user_id)
+    }
+
+    pub fn create_notification_sender_token(
+        &self,
+        channel: &str,
+        email: &str,
+    ) -> ServiceResult<String> {
+        let one_year_from_now = Duration::from_secs(31622400);
+        let expired_future_time = SystemTime::now().add(one_year_from_now);
+        let exp = OffsetDateTime::from(expired_future_time);
+
+        let bearer_claims = NotificationSenderClaim {
+            email: email.to_string(),
+            channel: channel.to_string(),
+            exp: exp.unix_timestamp() as usize,
+        };
+
+        let bearer = encode(
+            &Header::default(),
+            &bearer_claims,
+            &EncodingKey::from_secret(self.config.verify_registration_secret.as_bytes()),
+        )
+        .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
+
+        Ok(bearer)
+    }
+
+    pub fn decode_notification_sender_token(
+        &self,
+        token: &str,
+    ) -> ServiceResult<NotificationSenderClaim> {
+        let decoded_token = decode::<NotificationSenderClaim>(
+            token,
+            &DecodingKey::from_secret(self.config.verify_registration_secret.as_bytes()),
+            &Validation::new(Algorithm::HS256),
+        )
+        .map_err(|_| ServiceError::Unauthorized)?;
+
+        let now = OffsetDateTime::from(SystemTime::now()).unix_timestamp() as usize;
+        if decoded_token.claims.exp < now {
+            return Err(ServiceError::Unauthorized);
+        }
+
+        Ok(decoded_token.claims)
     }
 }

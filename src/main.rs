@@ -1,3 +1,4 @@
+use crate::routes::notification::NotificationRouter;
 use crate::routes::templating::TemplatingRouter;
 use crate::routes::user::UserRouter;
 use anyhow::Ok;
@@ -46,6 +47,10 @@ async fn main() -> anyhow::Result<()> {
         .nest(
             "/api/templating",
             TemplatingRouter::new_router(service_register.clone()),
+        )
+        .nest(
+            "/api/notification",
+            NotificationRouter::new_router(service_register.clone()),
         )
         .layer(
             CorsLayer::new()

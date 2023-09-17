@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use async_stream::stream;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     headers::{authorization::Bearer, Authorization},
     response::sse::{Event as SseEvent, Sse},
     routing::{delete, get, post},
@@ -12,16 +12,16 @@ use futures::Stream;
 use madtofan_microservice_common::{
     errors::{ServiceError, ServiceResult},
     notification::{
-        AddGroupRequest, AddSubscriberRequest, GetGroupsRequest, RemoveGroupRequest,
-        RemoveSubscriberRequest,
+        AddGroupRequest, AddMessageRequest, AddSubscriberRequest, GetGroupsRequest,
+        GetMessagesRequest, RemoveGroupRequest, RemoveSubscriberRequest,
     },
 };
-use uuid::Uuid;
+use serde::Deserialize;
 use validator::Validate;
 
 use crate::{
     request::notification::{AddGroupEndpointRequest, SendNotificationEndpointRequest},
-    response::notification::NotificationEndpointResponse,
+    response::notification::{NotificationEndpointResponse, NotificationLogsEndpointResponse},
     utilities::{
         events::{ChannelTag, EventMessage, NotificationMessage},
         service_register::ServiceRegister,
@@ -33,6 +33,11 @@ use crate::{
 };
 use tracing::info;
 
+#[derive(Deserialize)]
+pub struct Pagination {
+    page: i64,
+}
+
 pub struct NotificationRouter;
 
 impl NotificationRouter {
@@ -43,6 +48,7 @@ impl NotificationRouter {
                 get(NotificationRouter::event_notification)
                     .post(NotificationRouter::send_notification),
             )
+            .route("/log", get(NotificationRouter::get_notification_logs))
             .route(
                 "/subscribe/:group",
                 get(NotificationRouter::subscribe_to_group)
@@ -54,50 +60,6 @@ impl NotificationRouter {
                 delete(NotificationRouter::remove_group),
             )
             .with_state(service_register)
-    }
-
-    pub async fn send_notification(
-        State(channels_service): State<StateChannelsService>,
-        State(token_service): State<StateTokenService>,
-        authorization: TypedHeader<Authorization<Bearer>>,
-        Json(request): Json<SendNotificationEndpointRequest>,
-    ) -> ServiceResult<Json<NotificationEndpointResponse>> {
-        info!("Send Notification Endpoint");
-        request.validate()?;
-        token_service.decode_notification_sender_token(authorization.token())?;
-        let tag: ChannelTag = request.address.unwrap().parse()?;
-        let message = format!(
-            r#"
-            # {}
-            {}
-            "#,
-            request.subject.unwrap_or_default(),
-            request.message.unwrap_or_default()
-        );
-        let notification_message = NotificationMessage {
-            id: Uuid::new_v4(),
-            channel: tag.to_string(),
-            message,
-        };
-
-        match tag {
-            ChannelTag::Broadcast => {
-                let event_message = EventMessage::Broadcast(notification_message);
-                channels_service.broadcast(event_message).await;
-            }
-            ChannelTag::UserId(_) => {
-                let event_message = EventMessage::User(notification_message);
-                channels_service.send_by_tag(&tag, event_message).await;
-            }
-            ChannelTag::ChannelId(_) => {
-                let event_message = EventMessage::Channel(notification_message);
-                channels_service.send_by_tag(&tag, event_message).await;
-            }
-        }
-
-        Ok(Json(NotificationEndpointResponse {
-            message: "successfully sent notification".to_string(),
-        }))
     }
 
     pub async fn event_notification(
@@ -137,6 +99,118 @@ impl NotificationRouter {
             }
         };
         Sse::new(stream)
+    }
+
+    pub async fn send_notification(
+        State(channels_service): State<StateChannelsService>,
+        State(token_service): State<StateTokenService>,
+        State(mut notification_service): State<StateNotificationService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Json(request): Json<SendNotificationEndpointRequest>,
+    ) -> ServiceResult<Json<NotificationEndpointResponse>> {
+        info!("Send Notification Endpoint");
+        request.validate()?;
+        token_service.decode_notification_sender_token(authorization.token())?;
+        let tag: ChannelTag = request.address.unwrap().parse()?;
+        let subject = request.subject.unwrap_or_default();
+        let message = request.message.unwrap_or_default();
+
+        let notification_response = notification_service
+            .add_message(AddMessageRequest {
+                channel: tag.to_string(),
+                subject: subject.clone(),
+                message: message.clone(),
+            })
+            .await
+            .map_err(|_| {
+                ServiceError::InternalServerErrorWithContext(
+                    "failed to generate message ID".to_string(),
+                )
+            })?;
+        let notification = notification_response.into_inner();
+
+        let notification_message = NotificationMessage {
+            id: notification.id,
+            channel: tag.to_string(),
+            subject,
+            message,
+            datetime: notification.date,
+        };
+
+        match tag {
+            ChannelTag::Broadcast => {
+                let event_message = EventMessage::Broadcast(notification_message);
+                channels_service.broadcast(event_message).await;
+            }
+            ChannelTag::UserId(_) => {
+                let event_message = EventMessage::User(notification_message);
+                channels_service.send_by_tag(&tag, event_message).await;
+            }
+            ChannelTag::ChannelId(_) => {
+                let event_message = EventMessage::Channel(notification_message);
+                channels_service.send_by_tag(&tag, event_message).await;
+            }
+        }
+
+        Ok(Json(NotificationEndpointResponse {
+            message: "successfully sent notification".to_string(),
+        }))
+    }
+
+    pub async fn get_notification_logs(
+        State(mut notification_service): State<StateNotificationService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        pagination: Query<Pagination>,
+    ) -> ServiceResult<Json<NotificationLogsEndpointResponse>> {
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        let pagination: Pagination = pagination.0;
+        let limit = 10;
+        let offset = pagination.page * limit;
+
+        let channels = match bearer_claims {
+            Ok(claims) => {
+                let mut new_tags = Vec::new();
+                new_tags.push(ChannelTag::UserId(claims.user_id));
+                let get_groups_request = GetGroupsRequest {
+                    user_id: claims.user_id,
+                };
+                let groups_response = notification_service.get_groups(get_groups_request).await;
+                if let Ok(result) = groups_response {
+                    for group in result.into_inner().groups {
+                        new_tags.push(ChannelTag::ChannelId(group.name));
+                    }
+                }
+                new_tags
+            }
+            Err(_) => {
+                vec![]
+            }
+        }
+        .into_iter()
+        .map(|tag| tag.to_string())
+        .collect::<Vec<String>>();
+
+        let notification_response = notification_service
+            .get_messages(GetMessagesRequest {
+                channels,
+                offset,
+                limit,
+            })
+            .await
+            .map_err(|_| {
+                ServiceError::InternalServerErrorWithContext("failed to get logs".to_string())
+            })?
+            .into_inner();
+
+        Ok(Json(NotificationLogsEndpointResponse {
+            notifications: notification_response
+                .messages
+                .into_iter()
+                .map(NotificationMessage::from_message_response)
+                .collect(),
+            count: notification_response.count,
+        }))
     }
 
     pub async fn subscribe_to_group(
@@ -221,7 +295,7 @@ impl NotificationRouter {
             })?;
 
         let message = format!(
-            "successfully subscribed to group {}, group token is: {}",
+            "successfully created group: {}, group token is: {}",
             &group_name, token
         );
         Ok(Json(NotificationEndpointResponse { message }))

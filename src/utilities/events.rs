@@ -1,8 +1,10 @@
 use std::{fmt, str::FromStr};
 
-use madtofan_microservice_common::errors::{ServiceError, ServiceResult};
+use madtofan_microservice_common::{
+    errors::{ServiceError, ServiceResult},
+    notification::MessageResponse,
+};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub enum ChannelTag {
@@ -49,8 +51,8 @@ impl FromStr for ChannelTag {
 impl fmt::Display for ChannelTag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ChannelTag::UserId(_) => write!(f, "User"),
-            ChannelTag::ChannelId(channel) => write!(f, "Channel: {}", channel),
+            ChannelTag::UserId(user) => write!(f, "User:{}", user),
+            ChannelTag::ChannelId(channel) => write!(f, "Channel:{}", channel),
             ChannelTag::Broadcast => write!(f, "Broadcast"),
         }
     }
@@ -58,7 +60,21 @@ impl fmt::Display for ChannelTag {
 
 #[derive(Deserialize, Serialize)]
 pub struct NotificationMessage {
-    pub id: Uuid,
+    pub id: i64,
+    pub datetime: i64,
     pub channel: String,
+    pub subject: String,
     pub message: String,
+}
+
+impl NotificationMessage {
+    pub fn from_message_response(message_response: MessageResponse) -> Self {
+        Self {
+            id: message_response.id,
+            datetime: message_response.date,
+            channel: message_response.channel,
+            subject: message_response.subject,
+            message: message_response.message,
+        }
+    }
 }

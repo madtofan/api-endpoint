@@ -43,10 +43,10 @@ pub struct NotificationRouter;
 impl NotificationRouter {
     pub fn new_router(service_register: ServiceRegister) -> Router {
         Router::new()
+            .route("/", post(NotificationRouter::send_notification))
             .route(
-                "/",
-                get(NotificationRouter::event_notification)
-                    .post(NotificationRouter::send_notification),
+                "/:bearer_token",
+                get(NotificationRouter::event_notification),
             )
             .route("/log", get(NotificationRouter::get_notification_logs))
             .route(
@@ -66,12 +66,12 @@ impl NotificationRouter {
         State(mut channels_service): State<StateChannelsService>,
         State(mut notification_service): State<StateNotificationService>,
         State(token_service): State<StateTokenService>,
-        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(bearer_token): Path<String>,
     ) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
         info!("Subscribe Notification Endpoint");
         let stream = stream! {
             let bearer_claims = token_service
-                .decode_bearer_token(authorization.token());
+                .decode_bearer_token(&bearer_token);
             let tags = match bearer_claims {
                 Ok(claims) => {
                     let mut new_tags = Vec::new();

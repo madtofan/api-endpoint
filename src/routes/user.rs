@@ -20,9 +20,8 @@ use validator::Validate;
 use crate::{
     request::{
         user::{
-            AddRolePermissionRequest, AddRoleRequest, AuthorizeRevokeRolePermissionRequest,
-            LoginEndpointRequest, RefreshtokenEndpointRequest, RegisterEndpointRequest,
-            UpdateEndpointRequest,
+            AddRolePermissionRequest, AuthorizeRevokeRolePermissionRequest, LoginEndpointRequest,
+            RefreshtokenEndpointRequest, RegisterEndpointRequest, UpdateEndpointRequest,
         },
         Pagination,
     },
@@ -371,7 +370,7 @@ impl UserRouter {
         pagination: Query<Pagination>,
     ) -> ServiceResult<Json<RolesListResponse>> {
         info!("Get Roles Endpoint, obtaining authorization...");
-        token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
         let pagination: Pagination = pagination.0;
         let offset = pagination.page * *PAGINATION_SIZE;
 
@@ -396,22 +395,21 @@ impl UserRouter {
         Json(request): Json<AddRolePermissionRequest>,
     ) -> ServiceResult<Json<StatusMessageResponse>> {
         info!("Add Role Endpoint, obtaining authorization...");
-        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
 
         info!("Obtained authorization, adding role...");
         match request.name {
             Some(request_name) => {
-                let add_role_request = RolesPermissionsRequest {
-                    name: request_name.clone(),
-                };
+                info!("Adding role {:?}...", &request_name);
+                let add_role_request = RolesPermissionsRequest { name: request_name };
 
                 let status = user_service
                     .add_role(add_role_request)
                     .await
                     .map_err(|_| ServiceError::InternalServerError)?
                     .into_inner();
+                info!("Added Role!");
 
-                info!("Role {:?} added!", &request_name);
                 Ok(Json(StatusMessageResponse {
                     status: status.message,
                 }))
@@ -427,12 +425,10 @@ impl UserRouter {
         Path(role_name): Path<String>,
     ) -> ServiceResult<Json<StatusMessageResponse>> {
         info!("Delete Role Endpoint, obtaining authorization...");
-        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
 
-        info!("Obtained authorization, deleting role...");
-        let delete_role_request = RolesPermissionsRequest {
-            name: role_name.clone(),
-        };
+        info!("Obtained authorization, deleting role {:?}...", &role_name);
+        let delete_role_request = RolesPermissionsRequest { name: role_name };
 
         let status = user_service
             .delete_role(delete_role_request)
@@ -440,7 +436,7 @@ impl UserRouter {
             .map_err(|_| ServiceError::InternalServerError)?
             .into_inner();
 
-        info!("Role {:?} deleted!", &role_name);
+        info!("Role deleted!");
         Ok(Json(StatusMessageResponse {
             status: status.message,
         }))
@@ -453,7 +449,7 @@ impl UserRouter {
         pagination: Query<Pagination>,
     ) -> ServiceResult<Json<PermissionsListResponse>> {
         info!("Get Permissions Endpoint, obtaining authorization...");
-        token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
         let pagination: Pagination = pagination.0;
         let offset = pagination.page * *PAGINATION_SIZE;
 
@@ -480,13 +476,14 @@ impl UserRouter {
         Json(request): Json<AddRolePermissionRequest>,
     ) -> ServiceResult<Json<StatusMessageResponse>> {
         info!("Add Permission Endpoint, obtaining authorization...");
-        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
 
         info!("Obtained authorization, adding permission...");
         match request.name {
             Some(permission_name) => {
+                info!("Adding permission {:?}...", &permission_name);
                 let add_permission_request = RolesPermissionsRequest {
-                    name: permission_name.clone(),
+                    name: permission_name,
                 };
 
                 let status = user_service
@@ -495,7 +492,7 @@ impl UserRouter {
                     .map_err(|_| ServiceError::InternalServerError)?
                     .into_inner();
 
-                info!("Role {:?} added!", &permission_name);
+                info!("Role added!");
                 Ok(Json(StatusMessageResponse {
                     status: status.message,
                 }))
@@ -511,7 +508,7 @@ impl UserRouter {
         Path(permission_name): Path<String>,
     ) -> ServiceResult<Json<StatusMessageResponse>> {
         info!("Delete Permission Endpoint, obtaining authorization...");
-        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
 
         info!(
             "Obtained authorization, deleting permission {:?}...",
@@ -542,7 +539,7 @@ impl UserRouter {
         Json(request): Json<AuthorizeRevokeRolePermissionRequest>,
     ) -> ServiceResult<Json<StatusMessageResponse>> {
         info!("Authorize Role Endpoint, obtaining authorization...");
-        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
 
         info!("Obtained authorization, adding permission...");
         match request.permissions {
@@ -582,7 +579,7 @@ impl UserRouter {
         Json(request): Json<AuthorizeRevokeRolePermissionRequest>,
     ) -> ServiceResult<Json<StatusMessageResponse>> {
         info!("Revoking Role Endpoint, obtaining authorization...");
-        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+        token_service.decode_bearer_token(authorization.token())?;
 
         info!("Obtained authorization, removing permission...");
         match request.permissions {

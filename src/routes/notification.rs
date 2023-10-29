@@ -16,13 +16,16 @@ use madtofan_microservice_common::{
         GetMessagesRequest, RemoveGroupRequest, RemoveSubscriberRequest,
     },
 };
-use serde::Deserialize;
 use validator::Validate;
 
 use crate::{
-    request::notification::{AddGroupEndpointRequest, SendNotificationEndpointRequest},
+    request::{
+        notification::{AddGroupEndpointRequest, SendNotificationEndpointRequest},
+        Pagination,
+    },
     response::notification::{NotificationEndpointResponse, NotificationLogsEndpointResponse},
     utilities::{
+        constants::PAGINATION_SIZE,
         events::{ChannelTag, EventMessage, NotificationMessage},
         service_register::ServiceRegister,
         states::{
@@ -32,11 +35,6 @@ use crate::{
     },
 };
 use tracing::info;
-
-#[derive(Deserialize)]
-pub struct Pagination {
-    page: i64,
-}
 
 pub struct NotificationRouter;
 
@@ -165,8 +163,7 @@ impl NotificationRouter {
     ) -> ServiceResult<Json<NotificationLogsEndpointResponse>> {
         let bearer_claims = token_service.decode_bearer_token(authorization.token());
         let pagination: Pagination = pagination.0;
-        let limit = 10;
-        let offset = pagination.page * limit;
+        let offset = pagination.page * *PAGINATION_SIZE;
 
         let channels = match bearer_claims {
             Ok(claims) => {
@@ -195,7 +192,7 @@ impl NotificationRouter {
             .get_messages(GetMessagesRequest {
                 channels,
                 offset,
-                limit,
+                limit: *PAGINATION_SIZE,
             })
             .await
             .map_err(|_| {

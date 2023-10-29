@@ -36,3 +36,13 @@ pub struct UpdateEndpointRequest {
     pub bio: Option<String>,
     pub image: Option<String>,
 }
+
+#[derive(Deserialize, Serialize, Debug, Default, Validate)]
+pub struct AddRolePermissionRequest {
+    pub name: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Default, Validate)]
+pub struct AuthorizeRevokeRolePermissionRequest {
+    pub permissions: Option<Vec<String>>,
+}

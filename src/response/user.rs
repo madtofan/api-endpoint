@@ -1,4 +1,4 @@
-use madtofan_microservice_common::user::UserResponse;
+use madtofan_microservice_common::user::{ListResponse, UserResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::utilities::token::Tokens;
@@ -46,4 +46,66 @@ impl ObtainTokenResponse {
 pub struct RegisterUserEndpointResponse {
     pub email: String,
     pub verify_token: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Roles {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct RolesListResponse {
+    pub roles: Vec<Roles>,
+    pub count: i64,
+}
+
+impl RolesListResponse {
+    pub fn from_list_response(list_response: ListResponse) -> Self {
+        Self {
+            roles: list_response
+                .list
+                .into_iter()
+                .map(|role| Roles {
+                    id: role.id,
+                    name: role.name,
+                })
+                .collect(),
+            count: list_response.count,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Permissions {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct PermissionsListResponse {
+    pub roles: Vec<Permissions>,
+    pub count: i64,
+}
+
+impl PermissionsListResponse {
+    pub fn from_list_response(list_response: ListResponse) -> Self {
+        Self {
+            roles: list_response
+                .list
+                .into_iter()
+                .map(|role| Permissions {
+                    id: role.id,
+                    name: role.name,
+                })
+                .collect(),
+            count: list_response.count,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct RolePermissions {
+    pub role_name: String,
+    pub permissions: Vec<String>,
 }

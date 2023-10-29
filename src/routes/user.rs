@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     headers::{authorization::Bearer, Authorization},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router, TypedHeader,
 };
 use madtofan_microservice_common::{
@@ -9,20 +9,32 @@ use madtofan_microservice_common::{
     errors::{ServiceError, ServiceResult},
     templating::{compose_request::InputValue, ComposeRequest},
     user::{
-        update_request::UpdateFields, GetUserRequest, LoginRequest, RefreshTokenRequest,
-        RegisterRequest, UpdateRequest, VerifyRegistrationRequest, VerifyTokenRequest,
+        update_request::UpdateFields, GetListRequest, GetUserRequest, LoginRequest,
+        RefreshTokenRequest, RegisterRequest, Role, RolesPermissionsRequest, UpdateRequest,
+        VerifyRegistrationRequest, VerifyTokenRequest,
     },
 };
 use urlencoding::{decode, encode};
 use validator::Validate;
 
 use crate::{
-    request::user::{
-        LoginEndpointRequest, RefreshtokenEndpointRequest, RegisterEndpointRequest,
-        UpdateEndpointRequest,
+    request::{
+        user::{
+            AddRolePermissionRequest, AddRoleRequest, AuthorizeRevokeRolePermissionRequest,
+            LoginEndpointRequest, RefreshtokenEndpointRequest, RegisterEndpointRequest,
+            UpdateEndpointRequest,
+        },
+        Pagination,
     },
-    response::user::{ObtainTokenResponse, RegisterUserEndpointResponse, UserEndpointResponse},
+    response::{
+        user::{
+            ObtainTokenResponse, PermissionsListResponse, RegisterUserEndpointResponse,
+            RolesListResponse, UserEndpointResponse,
+        },
+        StatusMessageResponse,
+    },
     utilities::{
+        constants::PAGINATION_SIZE,
         service_register::ServiceRegister,
         states::{
             email_service::StateEmailService, templating_service::StateTemplatingService,
@@ -49,6 +61,21 @@ impl UserRouter {
                 "/verify/:token",
                 get(UserRouter::verify_registration_endpoint),
             )
+            .route(
+                "/roles",
+                get(UserRouter::get_roles).post(UserRouter::add_role),
+            )
+            .route("/roles/:role_name", delete(UserRouter::delete_role))
+            .route(
+                "/permissions",
+                get(UserRouter::get_permissions).post(UserRouter::add_permission),
+            )
+            .route(
+                "/permissions/:permission_name",
+                delete(UserRouter::delete_permission),
+            )
+            .route("/authorize/:role_name", post(UserRouter::authorize_role))
+            .route("/revoke/:role_name", post(UserRouter::revoke_role))
             .with_state(service_register)
     }
 
@@ -297,7 +324,7 @@ impl UserRouter {
 
         info!("Obtained authorization, obtaining response from User service...");
         let user = user_service
-            .get(GetUserRequest {
+            .get_user(GetUserRequest {
                 id: bearer_claims.user_id,
             })
             .await
@@ -335,5 +362,256 @@ impl UserRouter {
 
         info!("Returning response!");
         Ok(Json(UserEndpointResponse::from_user_response(user)))
+    }
+
+    pub async fn get_roles(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        pagination: Query<Pagination>,
+    ) -> ServiceResult<Json<RolesListResponse>> {
+        info!("Get Roles Endpoint, obtaining authorization...");
+        token_service.decode_bearer_token(authorization.token());
+        let pagination: Pagination = pagination.0;
+        let offset = pagination.page * *PAGINATION_SIZE;
+
+        info!("Obtained authorization, obtaining response from User service...");
+        let role_response = user_service
+            .list_roles(GetListRequest {
+                offset,
+                limit: *PAGINATION_SIZE,
+            })
+            .await
+            .map_err(|_| ServiceError::InternalServerError)?
+            .into_inner();
+
+        info!("Returning roles list response!");
+        Ok(Json(RolesListResponse::from_list_response(role_response)))
+    }
+
+    pub async fn add_role(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Json(request): Json<AddRolePermissionRequest>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Add Role Endpoint, obtaining authorization...");
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+
+        info!("Obtained authorization, adding role...");
+        match request.name {
+            Some(request_name) => {
+                let add_role_request = RolesPermissionsRequest {
+                    name: request_name.clone(),
+                };
+
+                let status = user_service
+                    .add_role(add_role_request)
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?
+                    .into_inner();
+
+                info!("Role {:?} added!", &request_name);
+                Ok(Json(StatusMessageResponse {
+                    status: status.message,
+                }))
+            }
+            None => Err(ServiceError::BadRequest("Missing role name".to_string())),
+        }
+    }
+
+    pub async fn delete_role(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(role_name): Path<String>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Delete Role Endpoint, obtaining authorization...");
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+
+        info!("Obtained authorization, deleting role...");
+        let delete_role_request = RolesPermissionsRequest {
+            name: role_name.clone(),
+        };
+
+        let status = user_service
+            .delete_role(delete_role_request)
+            .await
+            .map_err(|_| ServiceError::InternalServerError)?
+            .into_inner();
+
+        info!("Role {:?} deleted!", &role_name);
+        Ok(Json(StatusMessageResponse {
+            status: status.message,
+        }))
+    }
+
+    pub async fn get_permissions(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        pagination: Query<Pagination>,
+    ) -> ServiceResult<Json<PermissionsListResponse>> {
+        info!("Get Permissions Endpoint, obtaining authorization...");
+        token_service.decode_bearer_token(authorization.token());
+        let pagination: Pagination = pagination.0;
+        let offset = pagination.page * *PAGINATION_SIZE;
+
+        info!("Obtained authorization, obtaining response from User service...");
+        let permission_response = user_service
+            .list_roles(GetListRequest {
+                offset,
+                limit: *PAGINATION_SIZE,
+            })
+            .await
+            .map_err(|_| ServiceError::InternalServerError)?
+            .into_inner();
+
+        info!("Returning permissions list response!");
+        Ok(Json(PermissionsListResponse::from_list_response(
+            permission_response,
+        )))
+    }
+
+    pub async fn add_permission(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Json(request): Json<AddRolePermissionRequest>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Add Permission Endpoint, obtaining authorization...");
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+
+        info!("Obtained authorization, adding permission...");
+        match request.name {
+            Some(permission_name) => {
+                let add_permission_request = RolesPermissionsRequest {
+                    name: permission_name.clone(),
+                };
+
+                let status = user_service
+                    .add_permission(add_permission_request)
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?
+                    .into_inner();
+
+                info!("Role {:?} added!", &permission_name);
+                Ok(Json(StatusMessageResponse {
+                    status: status.message,
+                }))
+            }
+            None => Err(ServiceError::BadRequest("Missing role name".to_string())),
+        }
+    }
+
+    pub async fn delete_permission(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(permission_name): Path<String>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Delete Permission Endpoint, obtaining authorization...");
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+
+        info!(
+            "Obtained authorization, deleting permission {:?}...",
+            &permission_name
+        );
+        let delete_permission_request = RolesPermissionsRequest {
+            name: permission_name,
+        };
+
+        let status = user_service
+            .delete_permission(delete_permission_request)
+            .await
+            .map_err(|_| ServiceError::InternalServerError)?
+            .into_inner();
+
+        info!("Permission deleted!");
+
+        Ok(Json(StatusMessageResponse {
+            status: status.message,
+        }))
+    }
+
+    pub async fn authorize_role(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(role_name): Path<String>,
+        Json(request): Json<AuthorizeRevokeRolePermissionRequest>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Authorize Role Endpoint, obtaining authorization...");
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+
+        info!("Obtained authorization, adding permission...");
+        match request.permissions {
+            Some(permissions) => {
+                let permissions_string = &permissions.join(",");
+                info!(
+                    "Authorizing Role {:?} with {:?}",
+                    &role_name, &permissions_string
+                );
+                let authorize_request = Role {
+                    name: role_name,
+                    permissions,
+                };
+
+                let status = user_service
+                    .authorize_role(authorize_request)
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?
+                    .into_inner();
+
+                info!("Role authorized!");
+
+                Ok(Json(StatusMessageResponse {
+                    status: status.message,
+                }))
+            }
+            None => Err(ServiceError::BadRequest(
+                "Missing permissions to authorize".to_string(),
+            )),
+        }
+    }
+    pub async fn revoke_role(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(role_name): Path<String>,
+        Json(request): Json<AuthorizeRevokeRolePermissionRequest>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Revoking Role Endpoint, obtaining authorization...");
+        let bearer_claims = token_service.decode_bearer_token(authorization.token());
+
+        info!("Obtained authorization, removing permission...");
+        match request.permissions {
+            Some(permissions) => {
+                let permissions_string = &permissions.join(",");
+                info!(
+                    "Revoking Role {:?} from {:?}",
+                    &role_name, &permissions_string
+                );
+                let authorize_request = Role {
+                    name: role_name,
+                    permissions,
+                };
+
+                let status = user_service
+                    .authorize_role(authorize_request)
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?
+                    .into_inner();
+
+                info!("Role revoked!");
+
+                Ok(Json(StatusMessageResponse {
+                    status: status.message,
+                }))
+            }
+            None => Err(ServiceError::BadRequest(
+                "Missing permissions to revoke".to_string(),
+            )),
+        }
     }
 }

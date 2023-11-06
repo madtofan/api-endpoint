@@ -12,6 +12,7 @@ pub struct UserEndpointResponse {
     pub last_name: String,
     pub bio: Option<String>,
     pub image: Option<String>,
+    pub roles: Vec<RolePermissions>,
 }
 
 impl UserEndpointResponse {
@@ -23,6 +24,14 @@ impl UserEndpointResponse {
             last_name: user_response.last_name,
             bio: user_response.bio,
             image: user_response.image,
+            roles: user_response
+                .roles
+                .into_iter()
+                .map(|role| RolePermissions {
+                    role_name: role.name,
+                    permissions: role.permissions,
+                })
+                .collect::<Vec<RolePermissions>>(),
         }
     }
 }

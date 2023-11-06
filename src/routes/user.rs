@@ -9,9 +9,9 @@ use madtofan_microservice_common::{
     errors::{ServiceError, ServiceResult},
     templating::{compose_request::InputValue, ComposeRequest},
     user::{
-        update_request::UpdateFields, GetListRequest, GetUserRequest, LoginRequest,
-        RefreshTokenRequest, RegisterRequest, Role, RolesPermissionsRequest, UpdateRequest,
-        VerifyRegistrationRequest, VerifyTokenRequest,
+        update_request::UpdateFields, AuthorizeRevokeUser, GetListRequest, GetUserRequest,
+        LoginRequest, RefreshTokenRequest, RegisterRequest, Role, RolesPermissionsRequest,
+        UpdateRequest, VerifyRegistrationRequest, VerifyTokenRequest,
     },
 };
 use urlencoding::{decode, encode};
@@ -20,8 +20,9 @@ use validator::Validate;
 use crate::{
     request::{
         user::{
-            AddRolePermissionRequest, AuthorizeRevokeRolePermissionRequest, LoginEndpointRequest,
-            RefreshtokenEndpointRequest, RegisterEndpointRequest, UpdateEndpointRequest,
+            AddRolePermissionRequest, AuthorizeRevokeRolePermissionRequest,
+            AuthorizeRevokeUserRoleRequest, LoginEndpointRequest, RefreshtokenEndpointRequest,
+            RegisterEndpointRequest, UpdateEndpointRequest,
         },
         Pagination,
     },
@@ -73,8 +74,16 @@ impl UserRouter {
                 "/permissions/:permission_name",
                 delete(UserRouter::delete_permission),
             )
-            .route("/authorize/:role_name", post(UserRouter::authorize_role))
-            .route("/revoke/:role_name", post(UserRouter::revoke_role))
+            .route(
+                "/authorize/user/:role_name",
+                post(UserRouter::authorize_role),
+            )
+            .route("/revoke/user/:role_name", post(UserRouter::revoke_role))
+            .route(
+                "/authorize/role/:role_name",
+                post(UserRouter::authorize_role),
+            )
+            .route("/revoke/role/:role_name", post(UserRouter::revoke_role))
             .with_state(service_register)
     }
 
@@ -595,7 +604,7 @@ impl UserRouter {
                 };
 
                 let status = user_service
-                    .authorize_role(authorize_request)
+                    .revoke_role(authorize_request)
                     .await
                     .map_err(|_| ServiceError::InternalServerError)?
                     .into_inner();
@@ -604,6 +613,99 @@ impl UserRouter {
 
                 Ok(Json(StatusMessageResponse {
                     status: status.message,
+                }))
+            }
+            None => Err(ServiceError::BadRequest(
+                "Missing permissions to revoke".to_string(),
+            )),
+        }
+    }
+
+    pub async fn authorize_user(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(user_id): Path<String>,
+        Json(request): Json<AuthorizeRevokeUserRoleRequest>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Authorize User Endpoint, obtaining authorization...");
+        token_service.decode_bearer_token(authorization.token())?;
+
+        info!("Obtained authorization, adding role...");
+        match request.roles {
+            Some(roles) => {
+                let user_id_int = user_id
+                    .parse::<i32>()
+                    .map_err(|_| ServiceError::BadRequest("Invalid user id".to_string()))?;
+                let roles_string = &roles.join(",");
+                info!("Authorizing User {:?} with {:?}", &user_id, &roles_string);
+                let authorize_request = AuthorizeRevokeUser {
+                    id: user_id_int as i64,
+                    roles,
+                };
+
+                let user = user_service
+                    .authorize_user(authorize_request)
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?
+                    .into_inner();
+
+                info!("User authorized!");
+                let current_roles = user
+                    .roles
+                    .into_iter()
+                    .map(|r| r.name)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                Ok(Json(StatusMessageResponse {
+                    status: format!("User is now authorized with roles: {:?}", current_roles),
+                }))
+            }
+            None => Err(ServiceError::BadRequest(
+                "Missing permissions to authorize".to_string(),
+            )),
+        }
+    }
+    pub async fn revoke_user(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        Path(user_id): Path<String>,
+        Json(request): Json<AuthorizeRevokeUserRoleRequest>,
+    ) -> ServiceResult<Json<StatusMessageResponse>> {
+        info!("Revoking User Endpoint, obtaining authorization...");
+        token_service.decode_bearer_token(authorization.token())?;
+
+        info!("Obtained authorization, removing role...");
+        match request.roles {
+            Some(roles) => {
+                let roles_string = &roles.join(",");
+                let user_id_int = user_id
+                    .parse::<i32>()
+                    .map_err(|_| ServiceError::BadRequest("Invalid user id".to_string()))?;
+                info!("Revoking Role {:?} from {:?}", &user_id, &roles_string);
+                let authorize_request = AuthorizeRevokeUser {
+                    id: user_id_int as i64,
+                    roles,
+                };
+
+                let user = user_service
+                    .revoke_user(authorize_request)
+                    .await
+                    .map_err(|_| ServiceError::InternalServerError)?
+                    .into_inner();
+
+                info!("Role revoked!");
+                let current_roles = user
+                    .roles
+                    .into_iter()
+                    .map(|r| r.name)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                Ok(Json(StatusMessageResponse {
+                    status: format!("User is now authorized with roles: {:?}", current_roles),
                 }))
             }
             None => Err(ServiceError::BadRequest(

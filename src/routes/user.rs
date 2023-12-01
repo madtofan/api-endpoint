@@ -76,9 +76,9 @@ impl UserRouter {
             )
             .route(
                 "/authorize/user/:role_name",
-                post(UserRouter::authorize_role),
+                post(UserRouter::authorize_user),
             )
-            .route("/revoke/user/:role_name", post(UserRouter::revoke_role))
+            .route("/revoke/user/:role_name", post(UserRouter::revoke_user))
             .route(
                 "/authorize/role/:role_name",
                 post(UserRouter::authorize_role),

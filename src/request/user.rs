@@ -43,6 +43,11 @@ pub struct AddRolePermissionRequest {
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Validate)]
+pub struct AuthorizeRevokeUserRoleRequest {
+    pub roles: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Default, Validate)]
 pub struct AuthorizeRevokeRolePermissionRequest {
     pub permissions: Option<Vec<String>>,
 }

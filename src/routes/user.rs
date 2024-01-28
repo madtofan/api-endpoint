@@ -74,11 +74,8 @@ impl UserRouter {
                 "/permissions/:permission_name",
                 delete(UserRouter::delete_permission),
             )
-            .route(
-                "/authorize/user/:role_name",
-                post(UserRouter::authorize_role),
-            )
-            .route("/revoke/user/:role_name", post(UserRouter::revoke_role))
+            .route("/authorize/user/:user_id", post(UserRouter::authorize_user))
+            .route("/revoke/user/:user_id", post(UserRouter::revoke_user))
             .route(
                 "/authorize/role/:role_name",
                 post(UserRouter::authorize_role),

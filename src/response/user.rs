@@ -1,9 +1,11 @@
 use madtofan_microservice_common::user::{ListResponse, UserResponse};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::utilities::token::Tokens;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct UserEndpointResponse {
     #[serde(skip_serializing, skip_deserializing)]
     pub id: i64,
@@ -36,7 +38,8 @@ impl UserEndpointResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct ObtainTokenResponse {
     pub refresh_token: String,
     pub bearer_token: String,
@@ -51,19 +54,22 @@ impl ObtainTokenResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct RegisterUserEndpointResponse {
     pub email: String,
     pub verify_token: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct Roles {
     pub id: i64,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct RolesListResponse {
     pub roles: Vec<Roles>,
     pub count: i64,
@@ -85,13 +91,15 @@ impl RolesListResponse {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct Permissions {
     pub id: i64,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct PermissionsListResponse {
     pub roles: Vec<Permissions>,
     pub count: i64,
@@ -113,7 +121,8 @@ impl PermissionsListResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, TS)]
+#[ts(export, export_to = "bindings/user/")]
 pub struct RolePermissions {
     pub role_name: String,
     pub permissions: Vec<String>,

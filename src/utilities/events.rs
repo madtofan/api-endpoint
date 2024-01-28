@@ -5,6 +5,7 @@ use madtofan_microservice_common::{
     notification::MessageResponse,
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub enum ChannelTag {
@@ -58,7 +59,8 @@ impl fmt::Display for ChannelTag {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, TS)]
+#[ts(export, export_to = "bindings/notification/")]
 pub struct NotificationMessage {
     pub id: i64,
     pub datetime: i64,

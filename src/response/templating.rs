@@ -1,16 +1,19 @@
 use madtofan_microservice_common::templating::{ListTemplateResponse, TemplateResponse};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::request::templating::TemplateInputsEndpoint;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, TS)]
+#[ts(export, export_to = "bindings/templating/")]
 pub struct TemplateEndpointResponse {
     pub name: String,
     pub description: String,
     pub template_inputs: Vec<TemplateInputsEndpoint>,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, TS)]
+#[ts(export, export_to = "bindings/templating/")]
 pub struct ListTemplateEndpointResponse {
     pub templates: Vec<TemplateEndpointResponse>,
 }

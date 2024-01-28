@@ -1,8 +1,10 @@
 use madtofan_microservice_common::templating::TemplateInput;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default, TS)]
+#[ts(export, export_to = "bindings/templating/")]
 pub struct AddTemplateEndpointRequest {
     #[validate(required, length(min = 6, max = 30))]
     pub name: Option<String>,
@@ -12,17 +14,12 @@ pub struct AddTemplateEndpointRequest {
     pub template_inputs: Option<Vec<TemplateInputsEndpoint>>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default, TS)]
+#[ts(export, export_to = "bindings/templating/")]
 pub struct TemplateInputsEndpoint {
     #[validate(required, length(min = 6, max = 30))]
     pub name: Option<String>,
     pub default_value: Option<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default)]
-pub struct RemoveTemplateEndpointRequest {
-    #[validate(required, length(min = 6, max = 30))]
-    pub name: Option<String>,
 }
 
 impl From<TemplateInputsEndpoint> for TemplateInput {

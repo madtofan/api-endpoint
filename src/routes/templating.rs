@@ -1,7 +1,7 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
     headers::{authorization::Bearer, Authorization},
-    routing::get,
+    routing::{delete, get},
     Json, Router, TypedHeader,
 };
 use madtofan_microservice_common::{
@@ -11,7 +11,7 @@ use madtofan_microservice_common::{
 use validator::Validate;
 
 use crate::{
-    request::templating::{AddTemplateEndpointRequest, RemoveTemplateEndpointRequest},
+    request::templating::AddTemplateEndpointRequest,
     response::templating::{ListTemplateEndpointResponse, TemplateEndpointResponse},
     utilities::{
         service_register::ServiceRegister,
@@ -28,8 +28,11 @@ impl TemplatingRouter {
             .route(
                 "/",
                 get(TemplatingRouter::list_templates_endpoint)
-                    .post(TemplatingRouter::add_template_endpoint)
-                    .delete(TemplatingRouter::remove_template_endpoint),
+                    .post(TemplatingRouter::add_template_endpoint),
+            )
+            .route(
+                "/:template_name",
+                delete(TemplatingRouter::remove_template_endpoint),
             )
             .with_state(service_register)
     }
@@ -100,19 +103,14 @@ impl TemplatingRouter {
         State(mut templating_service): State<StateTemplatingService>,
         State(token_service): State<StateTokenService>,
         authorization: TypedHeader<Authorization<Bearer>>,
-        Json(request): Json<RemoveTemplateEndpointRequest>,
+        Path(template_name): Path<String>,
     ) -> ServiceResult<Json<TemplateEndpointResponse>> {
         info!("Remove Template Endpoint");
 
         token_service.decode_bearer_token(authorization.token())?;
-        request.validate()?;
-        let remove_template_request: RemoveTemplateRequest = if let Some(name) = request.name {
-            Ok(RemoveTemplateRequest { name })
-        } else {
-            Err(ServiceError::BadRequest(
-                "Missing parameters in the request".to_string(),
-            ))
-        }?;
+        let remove_template_request = RemoveTemplateRequest {
+            name: template_name,
+        };
 
         let response: TemplateEndpointResponse = templating_service
             .remove_template(remove_template_request)

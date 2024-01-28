@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use validator::Validate;
 
-#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default, TS)]
+#[ts(export, export_to = "bindings/notification/")]
 pub struct SendNotificationEndpointRequest {
     #[validate(required)]
     pub address: Option<String>,
@@ -11,7 +13,8 @@ pub struct SendNotificationEndpointRequest {
     pub message: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Validate, Default, TS)]
+#[ts(export, export_to = "bindings/notification/")]
 pub struct AddGroupEndpointRequest {
     #[validate(required, length(min = 6, max = 30))]
     pub group_name: Option<String>,

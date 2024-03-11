@@ -48,8 +48,7 @@ impl TemplatingRouter {
         let list_templates_request: ListTemplateRequest = ListTemplateRequest {};
         let response = templating_service
             .list_templates(list_templates_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         Ok(Json(
@@ -91,8 +90,7 @@ impl TemplatingRouter {
 
         let response: TemplateEndpointResponse = templating_service
             .add_template(add_template_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner()
             .into();
 
@@ -114,8 +112,7 @@ impl TemplatingRouter {
 
         let response: TemplateEndpointResponse = templating_service
             .remove_template(remove_template_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner()
             .into();
 

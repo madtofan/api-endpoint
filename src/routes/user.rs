@@ -113,11 +113,7 @@ impl UserRouter {
                 ))
             }?;
 
-        let user = user_service
-            .register(register_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
-            .into_inner();
+        let user = user_service.register(register_request).await?.into_inner();
 
         let verify_token =
             encode(&token_service.create_verify_registration_token(user.id)?).into_owned();
@@ -142,12 +138,7 @@ impl UserRouter {
 
         let email_template = templating_service
             .compose(compose_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "Unable to compose email for verification".to_string(),
-                )
-            })?
+            .await?
             .into_inner();
 
         let send_email_request: SendEmailRequest = SendEmailRequest {
@@ -156,14 +147,7 @@ impl UserRouter {
             body: email_template.result,
         };
 
-        email_service
-            .send_email(send_email_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "Failed to send email to verify user".to_string(),
-                )
-            })?;
+        email_service.send_email(send_email_request).await?;
 
         Ok(Json(RegisterUserEndpointResponse {
             email: user.email,
@@ -193,8 +177,7 @@ impl UserRouter {
 
         let user = user_service
             .verify_registration(verify_registration_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         let compose_request: ComposeRequest = ComposeRequest {
@@ -211,12 +194,7 @@ impl UserRouter {
 
         let email_template = templating_service
             .compose(compose_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "Unable to compose email confirming verification".to_string(),
-                )
-            })?
+            .await?
             .into_inner();
 
         let send_email_request: SendEmailRequest = SendEmailRequest {
@@ -225,14 +203,7 @@ impl UserRouter {
             body: email_template.result,
         };
 
-        email_service
-            .send_email(send_email_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "Failed to send email to confirm verification".to_string(),
-                )
-            })?;
+        email_service.send_email(send_email_request).await?;
 
         Ok(Json(UserEndpointResponse::from_user_response(user)))
     }
@@ -254,11 +225,10 @@ impl UserRouter {
             }?;
 
         info!("Created Service Request, obtaining response from User service...");
-        let user = user_service
-            .login(login_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
-            .into_inner();
+        // let user = user_service.login(login_request).await?.into_inner();
+        let user_result = user_service.login(login_request).await;
+        dbg!(&user_result);
+        let user = user_result?.into_inner();
 
         info!("Obtained response from service, creating bearer token...");
         let tokens = token_service.create_token(user.id, &user.email)?;
@@ -269,8 +239,7 @@ impl UserRouter {
                 id: user.id,
                 token: tokens.clone().refresh,
             })
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?;
+            .await?;
 
         info!("User token updated, returning response!");
         Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
@@ -293,8 +262,7 @@ impl UserRouter {
                 id: claims.user_id,
                 token: refresh_token,
             })
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner()
             .valid;
 
@@ -309,8 +277,7 @@ impl UserRouter {
                         id: claims.user_id,
                         token: tokens.clone().refresh,
                     })
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?;
+                    .await?;
 
                 info!("User token updated, returning response!");
                 Ok(Json(ObtainTokenResponse::from_tokens(tokens)))
@@ -332,8 +299,7 @@ impl UserRouter {
             .get_user(GetUserRequest {
                 id: bearer_claims.user_id,
             })
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         info!("Returning response!");
@@ -361,8 +327,7 @@ impl UserRouter {
                     image: request.image,
                 }),
             })
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         info!("Returning response!");
@@ -386,8 +351,7 @@ impl UserRouter {
                 offset,
                 limit: *PAGINATION_SIZE,
             })
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         info!("Returning roles list response!");
@@ -409,11 +373,7 @@ impl UserRouter {
                 info!("Adding role {:?}...", &request_name);
                 let add_role_request = RolesPermissionsRequest { name: request_name };
 
-                let status = user_service
-                    .add_role(add_role_request)
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?
-                    .into_inner();
+                let status = user_service.add_role(add_role_request).await?.into_inner();
                 info!("Added Role!");
 
                 Ok(Json(StatusMessageResponse {
@@ -438,8 +398,7 @@ impl UserRouter {
 
         let status = user_service
             .delete_role(delete_role_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         info!("Role deleted!");
@@ -465,8 +424,7 @@ impl UserRouter {
                 offset,
                 limit: *PAGINATION_SIZE,
             })
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         info!("Returning permissions list response!");
@@ -494,8 +452,7 @@ impl UserRouter {
 
                 let status = user_service
                     .add_permission(add_permission_request)
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?
+                    .await?
                     .into_inner();
 
                 info!("Role added!");
@@ -526,8 +483,7 @@ impl UserRouter {
 
         let status = user_service
             .delete_permission(delete_permission_request)
-            .await
-            .map_err(|_| ServiceError::InternalServerError)?
+            .await?
             .into_inner();
 
         info!("Permission deleted!");
@@ -562,8 +518,7 @@ impl UserRouter {
 
                 let status = user_service
                     .authorize_role(authorize_request)
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?
+                    .await?
                     .into_inner();
 
                 info!("Role authorized!");
@@ -602,8 +557,7 @@ impl UserRouter {
 
                 let status = user_service
                     .revoke_role(authorize_request)
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?
+                    .await?
                     .into_inner();
 
                 info!("Role revoked!");
@@ -643,8 +597,7 @@ impl UserRouter {
 
                 let user = user_service
                     .authorize_user(authorize_request)
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?
+                    .await?
                     .into_inner();
 
                 info!("User authorized!");
@@ -689,8 +642,7 @@ impl UserRouter {
 
                 let user = user_service
                     .revoke_user(authorize_request)
-                    .await
-                    .map_err(|_| ServiceError::InternalServerError)?
+                    .await?
                     .into_inner();
 
                 info!("Role revoked!");

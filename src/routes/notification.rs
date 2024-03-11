@@ -119,12 +119,7 @@ impl NotificationRouter {
                 subject: subject.clone(),
                 message: message.clone(),
             })
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "failed to generate message ID".to_string(),
-                )
-            })?;
+            .await?;
         let notification = notification_response.into_inner();
 
         let notification_message = NotificationMessage {
@@ -194,10 +189,7 @@ impl NotificationRouter {
                 offset,
                 limit: *PAGINATION_SIZE,
             })
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext("failed to get logs".to_string())
-            })?
+            .await?
             .into_inner();
 
         Ok(Json(NotificationLogsEndpointResponse {
@@ -225,12 +217,7 @@ impl NotificationRouter {
         };
         notification_service
             .add_subscriber(add_subscriber_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "failed to subscribe to group".to_string(),
-                )
-            })?;
+            .await?;
 
         Ok(Json(NotificationEndpointResponse {
             message: "successfully subscribed".to_string(),
@@ -253,12 +240,7 @@ impl NotificationRouter {
 
         notification_service
             .remove_subscriber(clear_subscription_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext(
-                    "failed to clear subscription".to_string(),
-                )
-            })?;
+            .await?;
 
         Ok(Json(NotificationEndpointResponse {
             message: "successfully unsubscribed".to_string(),
@@ -284,12 +266,7 @@ impl NotificationRouter {
             token: token.clone(),
         };
 
-        notification_service
-            .add_group(add_group_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext("failed to add group".to_string())
-            })?;
+        notification_service.add_group(add_group_request).await?;
 
         let message = format!(
             "successfully created group: {}, group token is: {}",
@@ -314,10 +291,7 @@ impl NotificationRouter {
 
         notification_service
             .remove_group(remove_group_request)
-            .await
-            .map_err(|_| {
-                ServiceError::InternalServerErrorWithContext("failed to remove group".to_string())
-            })?;
+            .await?;
 
         Ok(Json(NotificationEndpointResponse {
             message: "successfully removed group".to_string(),

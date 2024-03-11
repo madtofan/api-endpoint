@@ -30,6 +30,22 @@ pub struct ServiceRegister {
 impl ServiceRegister {
     pub async fn new(config: Arc<AppConfig>) -> ServiceResult<Self> {
         info!("parsing config for addresses...");
+        info!(
+            "User service address: {}:{}",
+            &config.user_host, &config.user_port
+        );
+        info!(
+            "Email service address: {}:{}",
+            &config.email_host, &config.email_port
+        );
+        info!(
+            "Templating service address: {}:{}",
+            &config.templating_host, &config.templating_port
+        );
+        info!(
+            "Notification service address: {}:{}",
+            &config.notification_host, &config.notification_port
+        );
         let user_service_address_string = format!("{}:{}", &config.user_host, &config.user_port);
         let user_service_address = Box::leak(user_service_address_string.into_boxed_str());
         let email_service_address_string = format!("{}:{}", &config.email_host, &config.email_port);

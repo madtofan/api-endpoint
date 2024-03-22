@@ -6,5 +6,5 @@ pub mod user;
 
 #[derive(Deserialize)]
 pub struct Pagination {
-    pub page: i64,
+    pub page: Option<i64>,
 }

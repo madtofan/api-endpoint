@@ -1,5 +1,6 @@
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use madtofan_microservice_common::errors::{ServiceError, ServiceResult};
+use madtofan_microservice_common::user::Role;
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use std::{
@@ -14,6 +15,7 @@ use super::config::AppConfig;
 pub struct BearerClaims {
     pub sub: String,
     pub user_id: i64,
+    pub permissions: Vec<String>,
     exp: usize,
 }
 
@@ -53,7 +55,7 @@ impl JwtService {
         Self { config }
     }
 
-    pub fn create_token(&self, user_id: i64, email: &str) -> ServiceResult<Tokens> {
+    pub fn create_token(&self, user_id: i64, email: &str, roles: &[Role]) -> ServiceResult<Tokens> {
         let from_now = Duration::from_secs(60);
         let expired_future_time = SystemTime::now().add(from_now);
         let exp = OffsetDateTime::from(expired_future_time);
@@ -61,6 +63,7 @@ impl JwtService {
         let bearer_claims = BearerClaims {
             sub: String::from(email),
             exp: exp.unix_timestamp() as usize,
+            permissions: roles.iter().flat_map(|r| r.permissions.clone()).collect(),
             user_id,
         };
 
@@ -118,19 +121,19 @@ impl JwtService {
         let expired_future_time = SystemTime::now().add(from_now);
         let exp = OffsetDateTime::from(expired_future_time);
 
-        let bearer_claims = VerifyRegistrationClaim {
+        let verify_registration_claim = VerifyRegistrationClaim {
             exp: exp.unix_timestamp() as usize,
             user_id,
         };
 
-        let bearer = encode(
+        let token = encode(
             &Header::default(),
-            &bearer_claims,
+            &verify_registration_claim,
             &EncodingKey::from_secret(self.config.verify_registration_secret.as_bytes()),
         )
         .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
 
-        Ok(bearer)
+        Ok(token)
     }
 
     pub fn decode_verify_registration_token(&self, token: &str) -> ServiceResult<i64> {
@@ -158,20 +161,20 @@ impl JwtService {
         let expired_future_time = SystemTime::now().add(one_year_from_now);
         let exp = OffsetDateTime::from(expired_future_time);
 
-        let bearer_claims = NotificationSenderClaim {
+        let notification_sender_claim = NotificationSenderClaim {
             email: email.to_string(),
             channel: channel.to_string(),
             exp: exp.unix_timestamp() as usize,
         };
 
-        let bearer = encode(
+        let token = encode(
             &Header::default(),
-            &bearer_claims,
+            &notification_sender_claim,
             &EncodingKey::from_secret(self.config.verify_registration_secret.as_bytes()),
         )
         .map_err(|err| ServiceError::InternalServerErrorWithContext(err.to_string()))?;
 
-        Ok(bearer)
+        Ok(token)
     }
 
     pub fn decode_notification_sender_token(

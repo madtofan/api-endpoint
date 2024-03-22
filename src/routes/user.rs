@@ -29,7 +29,7 @@ use crate::{
     response::{
         user::{
             ObtainTokenResponse, PermissionsListResponse, RegisterUserEndpointResponse,
-            RolesListResponse, UserEndpointResponse,
+            RolesListResponse, UserEndpointResponse, UserListEndpointResponse,
         },
         StatusMessageResponse,
     },
@@ -81,6 +81,7 @@ impl UserRouter {
                 post(UserRouter::authorize_role),
             )
             .route("/revoke/role/:role_name", post(UserRouter::revoke_role))
+            .route("/users", get(UserRouter::get_users))
             .with_state(service_register)
     }
 
@@ -231,7 +232,7 @@ impl UserRouter {
         let user = user_result?.into_inner();
 
         info!("Obtained response from service, creating bearer token...");
-        let tokens = token_service.create_token(user.id, &user.email)?;
+        let tokens = token_service.create_token(user.id, &user.email, &user.roles)?;
 
         info!("Token created, updating user token!");
         user_service
@@ -266,10 +267,15 @@ impl UserRouter {
             .into_inner()
             .valid;
 
+        let user = user_service
+            .get_user(GetUserRequest { id: claims.user_id })
+            .await?
+            .into_inner();
+
         match is_valid_token {
             true => {
                 info!("Validated token, creating token...");
-                let tokens = token_service.create_token(user_id, &email)?;
+                let tokens = token_service.create_token(user_id, &email, &user.roles)?;
 
                 info!("Token created, updating user token!");
                 user_service
@@ -342,8 +348,8 @@ impl UserRouter {
     ) -> ServiceResult<Json<RolesListResponse>> {
         info!("Get Roles Endpoint, obtaining authorization...");
         token_service.decode_bearer_token(authorization.token())?;
-        let pagination: Pagination = pagination.0;
-        let offset = pagination.page * *PAGINATION_SIZE;
+        let pagination = pagination.0;
+        let offset = pagination.page.unwrap_or_default() * *PAGINATION_SIZE;
 
         info!("Obtained authorization, obtaining response from User service...");
         let role_response = user_service
@@ -416,7 +422,7 @@ impl UserRouter {
         info!("Get Permissions Endpoint, obtaining authorization...");
         token_service.decode_bearer_token(authorization.token())?;
         let pagination: Pagination = pagination.0;
-        let offset = pagination.page * *PAGINATION_SIZE;
+        let offset = pagination.page.unwrap_or_default() * *PAGINATION_SIZE;
 
         info!("Obtained authorization, obtaining response from User service...");
         let permission_response = user_service
@@ -617,6 +623,7 @@ impl UserRouter {
             )),
         }
     }
+
     pub async fn revoke_user(
         State(mut user_service): State<StateUserService>,
         State(token_service): State<StateTokenService>,
@@ -661,5 +668,31 @@ impl UserRouter {
                 "Missing permissions to revoke".to_string(),
             )),
         }
+    }
+
+    pub async fn get_users(
+        State(mut user_service): State<StateUserService>,
+        State(token_service): State<StateTokenService>,
+        authorization: TypedHeader<Authorization<Bearer>>,
+        pagination: Query<Pagination>,
+    ) -> ServiceResult<Json<UserListEndpointResponse>> {
+        info!("Get Users Endpoint, obtaining authorization...");
+        token_service.decode_bearer_token(authorization.token())?;
+        let pagination: Pagination = pagination.0;
+        let offset = pagination.page.unwrap_or_default() * *PAGINATION_SIZE;
+
+        info!("Obtained authorization, obtaining response from User service...");
+        let user_list_response = user_service
+            .get_user_list(GetListRequest {
+                offset,
+                limit: *PAGINATION_SIZE,
+            })
+            .await?
+            .into_inner();
+
+        info!("Returning user list response!");
+        Ok(Json(UserListEndpointResponse::from_list_response(
+            user_list_response,
+        )))
     }
 }

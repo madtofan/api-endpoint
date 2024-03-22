@@ -1,4 +1,4 @@
-use madtofan_microservice_common::user::{ListResponse, UserResponse};
+use madtofan_microservice_common::user::{ListResponse, UserList, UserListResponse, UserResponse};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -126,4 +126,48 @@ impl PermissionsListResponse {
 pub struct RolePermissions {
     pub role_name: String,
     pub permissions: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "bindings/user/")]
+pub struct UserListEndpoint {
+    pub id: i64,
+    pub email: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub bio: Option<String>,
+    pub image: Option<String>,
+}
+
+impl From<UserList> for UserListEndpoint {
+    fn from(user_list: UserList) -> Self {
+        Self {
+            id: user_list.id,
+            email: user_list.email,
+            first_name: user_list.first_name,
+            last_name: user_list.last_name,
+            bio: user_list.bio,
+            image: user_list.image,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "bindings/user/")]
+pub struct UserListEndpointResponse {
+    pub users: Vec<UserListEndpoint>,
+    pub count: i64,
+}
+
+impl UserListEndpointResponse {
+    pub fn from_list_response(list_response: UserListResponse) -> Self {
+        Self {
+            users: list_response
+                .users
+                .into_iter()
+                .map(|user| user.into())
+                .collect(),
+            count: list_response.count,
+        }
+    }
 }

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     headers::{authorization::Bearer, Authorization},
     routing::{delete, get},
     Json, Router, TypedHeader,
@@ -11,9 +11,10 @@ use madtofan_microservice_common::{
 use validator::Validate;
 
 use crate::{
-    request::templating::AddTemplateEndpointRequest,
+    request::{templating::AddTemplateEndpointRequest, Pagination},
     response::templating::{ListTemplateEndpointResponse, TemplateEndpointResponse},
     utilities::{
+        constants::PAGINATION_SIZE,
         service_register::ServiceRegister,
         states::{templating_service::StateTemplatingService, token_service::StateTokenService},
     },
@@ -41,11 +42,17 @@ impl TemplatingRouter {
         State(mut templating_service): State<StateTemplatingService>,
         State(token_service): State<StateTokenService>,
         authorization: TypedHeader<Authorization<Bearer>>,
+        pagination: Query<Pagination>,
     ) -> ServiceResult<Json<ListTemplateEndpointResponse>> {
         info!("List Templates Endpoint");
-
         token_service.decode_bearer_token(authorization.token())?;
-        let list_templates_request: ListTemplateRequest = ListTemplateRequest {};
+        let pagination: Pagination = pagination.0;
+        let offset = pagination.page.unwrap_or_default() * *PAGINATION_SIZE;
+
+        let list_templates_request: ListTemplateRequest = ListTemplateRequest {
+            offset,
+            limit: *PAGINATION_SIZE,
+        };
         let response = templating_service
             .list_templates(list_templates_request)
             .await?

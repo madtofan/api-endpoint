@@ -10,7 +10,7 @@ use axum::{
 };
 use futures::Stream;
 use madtofan_microservice_common::{
-    errors::{ServiceError, ServiceResult},
+    errors::ServiceResult,
     notification::{
         AddGroupRequest, AddMessageRequest, AddSubscriberRequest, GetGroupsRequest,
         GetMessagesRequest, RemoveGroupRequest, RemoveSubscriberRequest,
@@ -158,7 +158,7 @@ impl NotificationRouter {
     ) -> ServiceResult<Json<NotificationLogsEndpointResponse>> {
         let bearer_claims = token_service.decode_bearer_token(authorization.token());
         let pagination: Pagination = pagination.0;
-        let offset = pagination.page * *PAGINATION_SIZE;
+        let offset = pagination.page.unwrap_or_default() * *PAGINATION_SIZE;
 
         let channels = match bearer_claims {
             Ok(claims) => {

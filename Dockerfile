@@ -2,10 +2,11 @@
 # Cargo Build Stage
 # ------------------------------------------------------------------------------
 ARG APP_NAME="api-endpoint"
+ARG TARGET="x86_64-unknown-linux-musl"
 FROM --platform=linux/amd64 rust:1.74.0-alpine as builder
 
 ARG APP_NAME
-ARG TARGET="x86_64-unknown-linux-musl"
+ARG TARGET
 WORKDIR /usr/src/$APP_NAME
 
 # Create blank project
@@ -23,16 +24,17 @@ COPY ./common ../common
 COPY ./$APP_NAME/ .
 
 # This is the actual application build.
-RUN cargo build --target x86_64-unknown-linux-musl --release
+RUN cargo build --target $TARGET --release
 
 # ------------------------------------------------------------------------------
 # Final Stage
 # ------------------------------------------------------------------------------
 FROM alpine:3.18.0 AS runtime 
 ARG APP_NAME
+ARG TARGET
 
 # Copy application binary from builder image
-COPY --from=builder /usr/src/$APP_NAME/target/x86_64-unknown-linux-musl/release/$APP_NAME /usr/local/bin
+COPY --from=builder /usr/src/$APP_NAME/target/$TARGET/release/$APP_NAME /usr/local/bin
 
 # Run the application
 CMD ["/usr/local/bin/api-endpoint"]

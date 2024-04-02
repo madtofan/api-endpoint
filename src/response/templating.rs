@@ -16,6 +16,7 @@ pub struct TemplateEndpointResponse {
 #[ts(export, export_to = "bindings/templating/")]
 pub struct ListTemplateEndpointResponse {
     pub templates: Vec<TemplateEndpointResponse>,
+    pub count: i64,
 }
 
 impl From<TemplateResponse> for TemplateEndpointResponse {
@@ -43,6 +44,7 @@ impl ListTemplateEndpointResponse {
                 .into_iter()
                 .map(|template| template.into())
                 .collect::<Vec<TemplateEndpointResponse>>(),
+            count: list_template_response.count,
         }
     }
 }

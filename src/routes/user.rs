@@ -114,11 +114,14 @@ impl UserRouter {
                 ))
             }?;
 
+        info!("Sending request to User Service");
         let user = user_service.register(register_request).await?.into_inner();
 
+        info!("Success response by User Service creating verification token");
         let verify_token =
             encode(&token_service.create_verify_registration_token(user.id)?).into_owned();
 
+        info!("Composing email for verification");
         let compose_request: ComposeRequest = ComposeRequest {
             name: "registration".to_string(),
             input_values: vec![
@@ -142,6 +145,7 @@ impl UserRouter {
             .await?
             .into_inner();
 
+        info!("Sending verification email");
         let send_email_request: SendEmailRequest = SendEmailRequest {
             email: user.email.clone(),
             title: "Thank you for registering".to_string(),
@@ -150,6 +154,7 @@ impl UserRouter {
 
         email_service.send_email(send_email_request).await?;
 
+        info!("Verification email sent");
         Ok(Json(RegisterUserEndpointResponse {
             email: user.email,
             verify_token,

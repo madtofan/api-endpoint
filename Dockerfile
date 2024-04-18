@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------------
 ARG APP_NAME="api-endpoint"
 ARG TARGET="x86_64-unknown-linux-musl"
-FROM --platform=linux/amd64 rust:1.74.0-alpine as builder
+FROM --platform=linux/amd64 rust:1.77.0-alpine as builder
 
 ARG APP_NAME
 ARG TARGET
@@ -12,6 +12,7 @@ WORKDIR /usr/src/$APP_NAME
 # Create blank project
 RUN USER=root cargo new $APP_NAME
 RUN apk update && apk upgrade
+RUN apk add postgresql
 RUN apk add alpine-sdk
 RUN apk add --no-cache make protobuf-dev
 

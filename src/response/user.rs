@@ -101,19 +101,19 @@ pub struct Permissions {
 #[derive(Serialize, Deserialize, Default, TS)]
 #[ts(export, export_to = "bindings/user/")]
 pub struct PermissionsListResponse {
-    pub roles: Vec<Permissions>,
+    pub permissions: Vec<Permissions>,
     pub count: i64,
 }
 
 impl PermissionsListResponse {
     pub fn from_list_response(list_response: ListResponse) -> Self {
         Self {
-            roles: list_response
+            permissions: list_response
                 .list
                 .into_iter()
-                .map(|role| Permissions {
-                    id: role.id,
-                    name: role.name,
+                .map(|permission| Permissions {
+                    id: permission.id,
+                    name: permission.name,
                 })
                 .collect(),
             count: list_response.count,

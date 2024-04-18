@@ -81,7 +81,7 @@ impl UserRouter {
                 post(UserRouter::authorize_role),
             )
             .route("/revoke/role/:role_name", post(UserRouter::revoke_role))
-            .route("/users", get(UserRouter::get_users))
+            .route("/list", get(UserRouter::get_users))
             .with_state(service_register)
     }
 

@@ -145,7 +145,10 @@ impl UserRouter {
             .await?
             .into_inner();
 
-        info!("Sending verification email");
+        info!(
+            "Sending verification email for token: {}",
+            verify_token.clone()
+        );
         let send_email_request: SendEmailRequest = SendEmailRequest {
             email: user.email.clone(),
             title: "Thank you for registering".to_string(),

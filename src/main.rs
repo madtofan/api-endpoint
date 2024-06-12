@@ -2,13 +2,11 @@ use crate::routes::notification::NotificationRouter;
 use crate::routes::templating::TemplatingRouter;
 use crate::routes::user::UserRouter;
 use anyhow::Ok;
-use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
-use axum::http::Method;
 use axum::Router;
 use clap::Parser;
 use dotenv::dotenv;
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -52,13 +50,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/notification",
             NotificationRouter::new_router(service_register.clone()),
         )
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                // .allow_origin(cors_origin.parse::<HeaderValue>().unwrap())
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-                .allow_headers(vec![CONTENT_TYPE, AUTHORIZATION]),
-        );
+        .layer(CorsLayer::permissive());
 
     axum::Server::bind(&app_url.parse().unwrap())
         .serve(app.into_make_service())
